@@ -24,16 +24,15 @@ namespace REL::detail
 		if (ZYAN_FAILED(ZydisDecoderInit(
 				std::addressof(decoder),
 				ZYDIS_MACHINE_MODE_LONG_64,
-				ZYDIS_STACK_WIDTH_64))) {
+				ZYDIS_ADDRESS_WIDTH_64))) {
 			return false;
 		}
 
 		std::size_t offset{};
 		while (offset < a_code.size()) {
 			ZydisDecodedInstruction instruction{};
-			if (ZYAN_FAILED(ZydisDecoderDecodeInstruction(
+			if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(
 					std::addressof(decoder),
-					nullptr,
 					a_code.data() + offset,
 					a_code.size() - offset,
 					std::addressof(instruction))) ||

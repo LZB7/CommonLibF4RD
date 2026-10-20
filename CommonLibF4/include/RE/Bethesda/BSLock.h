@@ -2,6 +2,14 @@
 
 namespace RE
 {
+	class BSCriticalSection
+	{
+	public:
+		// members
+		REX::W32::CRITICAL_SECTION criticalSection;  // 00
+	};
+	static_assert(sizeof(BSCriticalSection) == 0x28);
+
 	class BSNonReentrantSpinLock
 	{
 	public:
@@ -18,33 +26,21 @@ namespace RE
 		void lock(const char* a_id = nullptr)
 		{
 			using func_t = decltype(&BSSpinLock::lock);
-			REL::Relocation<func_t> func{ REL::ID(1425657, 2192245) };
+			static REL::Relocation<func_t> func{ REL::ID(1425657, 2192245) };
 			return func(this, a_id);
 		}
 
 		[[nodiscard]] bool try_lock()
 		{
-			stl::atomic_ref lockCount{ _lockCount };
-			const auto threadID = WinAPI::GetCurrentThreadID();
-
-			if (_owningThread == threadID) {
-				++lockCount;
-				return true;
-			}
-
-			std::uint32_t expected{ 0 };
-			if (lockCount.compare_exchange_strong(expected, 1)) {
-				_owningThread = threadID;
-				return true;
-			}
-
-			return false;
+			using func_t = decltype(&BSSpinLock::try_lock);
+			static REL::Relocation<func_t> func{ REL::ID(267930, 2267902) };
+			return func(this);
 		}
 
 		void unlock()
 		{
 			stl::atomic_ref lockCount{ _lockCount };
-			std::uint32_t expected{ 1 };
+			std::uint32_t   expected{ 1 };
 			if (lockCount == expected) {
 				_owningThread = 0;
 				lockCount.compare_exchange_strong(expected, 0);
@@ -55,8 +51,8 @@ namespace RE
 
 	private:
 		// members
-		std::uint32_t _owningThread{ 0 };        // 0
-		volatile std::uint32_t _lockCount{ 0 };  // 4
+		std::uint32_t          _owningThread{ 0 };  // 0
+		volatile std::uint32_t _lockCount{ 0 };     // 4
 	};
 	static_assert(sizeof(BSSpinLock) == 0x8);
 
@@ -66,28 +62,28 @@ namespace RE
 		void lock_read()
 		{
 			using func_t = decltype(&BSReadWriteLock::lock_read);
-			REL::Relocation<func_t> func{ REL::ID(1573164, 2267897) };
+			static REL::Relocation<func_t> func{ REL::ID(1573164, 2267897) };
 			return func(this);
 		}
 
 		void lock_write()
 		{
 			using func_t = decltype(&BSReadWriteLock::lock_write);
-			REL::Relocation<func_t> func{ REL::ID(336186, 2267898) };
+			static REL::Relocation<func_t> func{ REL::ID(336186, 2267898) };
 			return func(this);
 		}
 
 		[[nodiscard]] bool try_lock_read()
 		{
 			using func_t = decltype(&BSReadWriteLock::try_lock_read);
-			REL::Relocation<func_t> func{ REL::ID(1372435, 2267901) };
+			static REL::Relocation<func_t> func{ REL::ID(1372435, 2267901) };
 			return func(this);
 		}
 
 		[[nodiscard]] bool try_lock_write()
 		{
 			using func_t = decltype(&BSReadWriteLock::try_lock_write);
-			REL::Relocation<func_t> func{ REL::ID(1279453, 2267902) };
+			static REL::Relocation<func_t> func{ REL::ID(1279453, 2267902) };
 			return func(this);
 		}
 
@@ -110,8 +106,8 @@ namespace RE
 
 	private:
 		// members
-		std::uint32_t _writerThread{ 0 };   // 0
-		volatile std::uint32_t _lock{ 0 };  // 4
+		std::uint32_t          _writerThread{ 0 };  // 0
+		volatile std::uint32_t _lock{ 0 };          // 4
 	};
 	static_assert(sizeof(BSReadWriteLock) == 0x8);
 

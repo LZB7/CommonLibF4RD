@@ -9,7 +9,7 @@ namespace RE
 		}
 		// Array* Array::Ctor(const TypeInfo *type_info, std::uint32_t initial_size){
 		// 	using func_t = decltype(&Array::Ctor);
-		// 	REL::Relocation<func_t> func{ REL::ID(870924, 2314915) };
+		// 	REL::Relocation<func_t> func{ REL::ID(870924) };
 		// 	return func(this, type_info, initial_size);
 		// }
 		[[nodiscard]] auto Array::operator[](size_type a_pos)

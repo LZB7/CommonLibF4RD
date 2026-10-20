@@ -29,9 +29,9 @@ namespace RE
 		using StaticUpdate_t = void();
 
 		// members
-		Scaleform::Ptr<IMenu> menu;               // 00
-		Create_t* create;                         // 08
-		StaticUpdate_t* staticUpdate{ nullptr };  // 10
+		Scaleform::Ptr<IMenu> menu;                     // 00
+		Create_t*             create;                   // 08
+		StaticUpdate_t*       staticUpdate{ nullptr };  // 10
 	};
 	static_assert(sizeof(UIMenuEntry) == 0x18);
 
@@ -44,75 +44,20 @@ namespace RE
 		public BSTEventSource<TutorialEvent>                 // 120
 	{
 	public:
-		static constexpr std::size_t OG_SIZE = 0x250;
-		static constexpr std::size_t NG_SIZE = 0x250;
-		static constexpr std::size_t AE_SIZE = 0x260;
-		static constexpr std::size_t OG_RUNTIME_DATA_OFFSET = 0x248;
-		static constexpr std::size_t NG_RUNTIME_DATA_OFFSET = 0x248;
-		static constexpr std::size_t AE_RUNTIME_DATA_OFFSET = 0x258;
 		static constexpr auto RTTI{ RTTI::UI };
 		static constexpr auto VTABLE{ VTABLE::UI };
 
 		using Create_t = typename UIMenuEntry::Create_t;
 		using StaticUpdate_t = typename UIMenuEntry::StaticUpdate_t;
 
-		class RuntimeData
-		{
-		public:
-			bool menuSystemVisible;           // 00
-			bool closingAllMenus;             // 01
-			bool freezeFrameScreenshotReady;  // 02
-		};
-		static_assert(sizeof(RuntimeData) == 0x3);
-
 		// add
 		virtual ~UI() = default;  // 01
 
-		[[nodiscard]] static constexpr std::size_t GetRuntimeDataOffset(const REL::Version& a_version) noexcept
+		[[nodiscard]] bool CustomRendererHasQuads(const BSFixedString& a_customRendererName)
 		{
-			return REL::Relocate(
-				a_version,
-				OG_RUNTIME_DATA_OFFSET,
-				NG_RUNTIME_DATA_OFFSET,
-				AE_RUNTIME_DATA_OFFSET);
-		}
-
-		[[nodiscard]] static std::size_t GetRuntimeDataOffset() noexcept
-		{
-			return GetRuntimeDataOffset(REL::Module::get().version());
-		}
-
-		[[nodiscard]] static constexpr std::size_t GetRuntimeSize(const REL::Version& a_version) noexcept
-		{
-			return REL::Relocate(a_version, OG_SIZE, NG_SIZE, AE_SIZE);
-		}
-
-		[[nodiscard]] static std::size_t GetRuntimeSize() noexcept
-		{
-			return GetRuntimeSize(REL::Module::get().version());
-		}
-
-		[[nodiscard]] RuntimeData& GetRuntimeData() noexcept
-		{
-			return REL::RelocateMember<RuntimeData>(
-				this,
-				OG_RUNTIME_DATA_OFFSET,
-				NG_RUNTIME_DATA_OFFSET,
-				AE_RUNTIME_DATA_OFFSET);
-		}
-
-		[[nodiscard]] const RuntimeData& GetRuntimeData() const noexcept
-		{
-			return REL::RelocateMember<RuntimeData>(
-				this,
-				OG_RUNTIME_DATA_OFFSET,
-				NG_RUNTIME_DATA_OFFSET,
-				AE_RUNTIME_DATA_OFFSET);
-		}
-
-		[[nodiscard]] std::uint32_t GetMenuModeCount() const noexcept
-		{
-			return REL::RelocateMember<std::uint32_t>(this, 0x1E0, 0x1E0, 0x1E0);
+			using func_t = decltype(&UI::CustomRendererHasQuads);
+			static REL::Relocation<func_t> func{ REL::ID(1401451) };
+			return func(this, a_customRendererName);
 		}
 
 		template <class T>
@@ -123,20 +68,20 @@ namespace RE
 
 		[[nodiscard]] static BSReadWriteLock& GetMenuMapRWLock()
 		{
-			REL::Relocation<BSReadWriteLock*> menuMapRWLock{ REL::ID(578487, 2707105) };
+			static REL::Relocation<BSReadWriteLock*> menuMapRWLock{ REL::ID(578487, 2707105) };
 			return *menuMapRWLock;
 		}
 
 		[[nodiscard]] static UI* GetSingleton()
 		{
-			REL::Relocation<UI**> singleton{ REL::ID(548587, 4796314) };
+			static REL::Relocation<UI**> singleton{ REL::ID(548587, 4796314) };
 			return *singleton;
 		}
 
 		[[nodiscard]] Scaleform::Ptr<IMenu> GetMenu(const BSFixedString& a_name) const
 		{
 			BSAutoReadLock l{ GetMenuMapRWLock() };
-			const auto it = menuMap.find(a_name);
+			const auto     it = menuMap.find(a_name);
 			return it != menuMap.end() ? it->second.menu : nullptr;
 		}
 
@@ -154,17 +99,24 @@ namespace RE
 			return menu ? menu->OnStack() : false;
 		}
 
+		template <class T>
+		[[nodiscard]] bool GetMenuOpen() const  //
+			requires(requires { T::MENU_NAME; })
+		{
+			return GetMenuOpen(T::MENU_NAME);
+		}
+
 		void RefreshCursor()
 		{
 			using func_t = decltype(&UI::RefreshCursor);
-			REL::Relocation<func_t> func{ REL::ID(1436639, 2284772) };
+			static REL::Relocation<func_t> func{ REL::ID(1436639) };
 			return func(this);
 		}
 
 		void RegisterMenu(const char* a_menu, Create_t* a_create, StaticUpdate_t* a_staticUpdate = nullptr)
 		{
 			using func_t = decltype(&UI::RegisterMenu);
-			REL::Relocation<func_t> func{ REL::ID(1519575, 2284766) };
+			static REL::Relocation<func_t> func{ REL::ID(1519575, 2284766) };
 			return func(this, a_menu, a_create, a_staticUpdate);
 		}
 
@@ -177,7 +129,7 @@ namespace RE
 		void UpdateControllerType()
 		{
 			using func_t = decltype(&UI::UpdateControllerType);
-			REL::Relocation<func_t> func{ REL::ID(175796, 2284768) };
+			static REL::Relocation<func_t> func{ REL::ID(175796) };
 			return func(this);
 		}
 
@@ -188,29 +140,32 @@ namespace RE
 		}
 
 		// members
-		BSTArray<BSFixedString> releasedMovies;            // 178
-		BSTArray<Scaleform::Ptr<IMenu>> menuStack;         // 190
-		BSTHashMap<BSFixedString, UIMenuEntry> menuMap;    // 1A8
-		BSSpinLock processMessagesLock;                    // 1D8
-		std::uint32_t menuMode;                            // 1E0
-		BSTAtomicValue<std::uint32_t> itemMenuMode;        // 1E4
-		BSTAtomicValue<std::uint32_t> pauseMenuDisableCt;  // 1E8
-		std::uint32_t freezeFrameMenuBG;                   // 1EC
-		std::uint32_t freezeFramePause;                    // 1F0
-		std::uint32_t savingDisabled;                      // 1F4
-		std::uint32_t disablesCompanion;                   // 1F8
-		std::uint32_t largeCacheRenderModeCount;           // 1FC
-		std::uint32_t movementToDirectionalCount;          // 200
-		BSTimer uiTimer;                                   // 208
+		BSTArray<BSFixedString>                releasedMovies;              // 178
+		BSTArray<Scaleform::Ptr<IMenu>>        menuStack;                   // 190
+		BSTHashMap<BSFixedString, UIMenuEntry> menuMap;                     // 1A8
+		BSSpinLock                             processMessagesLock;         // 1D8
+		std::uint32_t                          menuMode;                    // 1E0
+		BSTAtomicValue<std::uint32_t>          itemMenuMode;                // 1E4
+		BSTAtomicValue<std::uint32_t>          pauseMenuDisableCt;          // 1E8
+		std::uint32_t                          freezeFrameMenuBG;           // 1EC
+		std::uint32_t                          freezeFramePause;            // 1F0
+		std::uint32_t                          savingDisabled;              // 1F4
+		std::uint32_t                          disablesCompanion;           // 1F8
+		std::uint32_t                          largeCacheRenderModeCount;   // 1FC
+		std::uint32_t                          movementToDirectionalCount;  // 200
+		BSTimer                                uiTimer;                     // 208
+		bool                                   menuSystemVisible;           // 248
+		bool                                   closingAllMenus;             // 249
+		bool                                   freezeFrameScreenshotReady;  // 24A
 	};
-	static_assert(sizeof(UI) == 0x228);
+	static_assert(sizeof(UI) == 0x250);
 
 	namespace UIUtils
 	{
 		inline void UpdateGamepadDependentButtonCodes(bool a_usingGamepad)
 		{
 			using func_t = decltype(&UpdateGamepadDependentButtonCodes);
-			REL::Relocation<func_t> func{ REL::ID(190238, 4483350) };
+			static REL::Relocation<func_t> func{ REL::ID(190238) };
 			return func(a_usingGamepad);
 		}
 	}

@@ -5,7 +5,7 @@
 
 namespace RE
 {
-	class BSInputEventUser
+	class alignas(0x08) BSInputEventUser
 	{
 	public:
 		static constexpr auto RTTI{ RTTI::BSInputEventUser };
@@ -14,14 +14,14 @@ namespace RE
 		virtual ~BSInputEventUser() = default;  // 00
 
 		// add
-		virtual bool ShouldHandleEvent(const InputEvent*) { return false; }  // 01
-		virtual void HandleEvent(const ButtonEvent*) { return; }             // 08
-		virtual void HandleEvent(const CharacterEvent*) { return; }          // 07
-		virtual void HandleEvent(const MouseMoveEvent*) { return; }          // 06
-		virtual void HandleEvent(const CursorMoveEvent*) { return; }         // 05
-		virtual void HandleEvent(const ThumbstickEvent*) { return; }         // 04
-		virtual void HandleEvent(const DeviceConnectEvent*) { return; }      // 03
-		virtual void HandleEvent(const KinectEvent*) { return; }             // 02
+		virtual bool ShouldHandleEvent(const InputEvent*) { return false; }       // 01
+		virtual void OnKinectEvent(const KinectEvent*) { return; }                // 02
+		virtual void OnDeviceConnectEvent(const DeviceConnectEvent*) { return; }  // 03
+		virtual void OnThumbstickEvent(const ThumbstickEvent*) { return; }        // 04
+		virtual void OnCursorMoveEvent(const CursorMoveEvent*) { return; }        // 05
+		virtual void OnMouseMoveEvent(const MouseMoveEvent*) { return; }          // 06
+		virtual void OnCharacterEvent(const CharacterEvent*) { return; }          // 07
+		virtual void OnButtonEvent(const ButtonEvent*) { return; }                // 08
 
 		F4_HEAP_REDEFINE_NEW(BSInputEventUser);
 
@@ -38,4 +38,16 @@ namespace RE
 		static constexpr auto VTABLE{ VTABLE::DisconnectHandler };
 	};
 	static_assert(sizeof(DisconnectHandler) == 0x10);
+
+	struct __declspec(novtable) ScreenshotHandler :
+		public BSInputEventUser  // 00
+	{
+		static constexpr auto RTTI{ RTTI::ScreenshotHandler };
+		static constexpr auto VTABLE{ VTABLE::ScreenshotHandler };
+
+		// members
+		bool screenshotQueued;       // 10
+		bool multiScreenshotQueued;  // 11
+	};
+	static_assert(sizeof(ScreenshotHandler) == 0x18);
 }

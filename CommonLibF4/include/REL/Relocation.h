@@ -62,6 +62,10 @@
 	REL_MAKE_MEMBER_FUNCTION_NON_POD_TYPE_HELPER(&, ##__VA_ARGS__) \
 	REL_MAKE_MEMBER_FUNCTION_NON_POD_TYPE_HELPER(&&, ##__VA_ARGS__)
 
+#ifndef FALLOUT_REL_CONSTEXPR
+#	define FALLOUT_REL_CONSTEXPR
+#endif
+
 namespace REL
 {
 	class ID;
@@ -329,6 +333,25 @@ namespace REL
 		[[nodiscard]] constexpr decltype(auto) end() const noexcept { return _impl.end(); }
 		[[nodiscard]] constexpr decltype(auto) cend() const noexcept { return _impl.cend(); }
 
+		[[nodiscard]] constexpr std::uint32_t pack() const noexcept
+		{
+			return static_cast<std::uint32_t>(
+				(_impl[0] & 0x0FF) << 24u |
+				(_impl[1] & 0x0FF) << 16u |
+				(_impl[2] & 0xFFF) << 4u |
+				(_impl[3] & 0x00F));
+		}
+
+		[[nodiscard]] static constexpr Version unpack(std::uint32_t a_packed) noexcept
+		{
+			return Version{
+				static_cast<value_type>((a_packed >> 24u) & 0x0FF),
+				static_cast<value_type>((a_packed >> 16u) & 0x0FF),
+				static_cast<value_type>((a_packed >> 4u) & 0xFFF),
+				static_cast<value_type>(a_packed & 0x00F)
+			};
+		}
+
 		[[nodiscard]] std::strong_ordering constexpr compare(const Version& a_rhs) const noexcept
 		{
 			for (std::size_t i = 0; i < _impl.size(); ++i) {
@@ -478,6 +501,9 @@ namespace REL
 		[[nodiscard]] constexpr bool is_og() const noexcept { return runtime_family(_version) == RuntimeFamily::kOG; }
 		[[nodiscard]] constexpr bool is_ng() const noexcept { return runtime_family(_version) == RuntimeFamily::kNG; }
 		[[nodiscard]] constexpr bool is_ae() const noexcept { return runtime_family(_version) == RuntimeFamily::kAE; }
+		[[nodiscard]] static bool IsF4() noexcept { return get().is_og(); }
+		[[nodiscard]] static bool IsNG() noexcept { return !get().is_og(); }
+		[[nodiscard]] static constexpr bool IsVR() noexcept { return false; }
 		[[nodiscard]] constexpr Segment segment(Segment::Name a_segment) const noexcept { return _segments[a_segment]; }
 		[[nodiscard]] constexpr Version version() const noexcept { return _version; }
 
@@ -1556,3 +1582,15 @@ namespace REL
 #undef REL_MAKE_MEMBER_FUNCTION_POD_TYPE
 #undef REL_MAKE_MEMBER_FUNCTION_POD_TYPE_HELPER
 #undef REL_MAKE_MEMBER_FUNCTION_POD_TYPE_HELPER_IMPL
+
+#ifdef FMT_VERSION
+template <class CharT>
+struct fmt::formatter<REL::Version, CharT> : fmt::formatter<std::string, CharT>
+{
+	template <class FormatContext>
+	auto format(const REL::Version& a_version, FormatContext& a_ctx) const
+	{
+		return fmt::formatter<std::string, CharT>::format(a_version.string(), a_ctx);
+	}
+};
+#endif

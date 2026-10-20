@@ -52,7 +52,7 @@ namespace REL::detail
 			return Reachability::kInvalid;
 		}
 		ZydisDecoder decoder{};
-		if (ZYAN_FAILED(ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64))) {
+		if (ZYAN_FAILED(ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64))) {
 			return Reachability::kInvalid;
 		}
 		std::vector<std::vector<std::uint8_t>> visited;
@@ -70,9 +70,8 @@ namespace REL::detail
 			if (marks[offset] == 1) continue;
 			if (marks[offset] == 2) { unknownEdge = true; continue; }
 			ZydisDecodedInstruction instruction{};
-			ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT]{};
 			const auto code = a_ranges[ri].bytes.subspan(offset);
-			if (ZYAN_FAILED(ZydisDecoderDecodeFull(&decoder, code.data(), code.size(), &instruction, operands)) ||
+			if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&decoder, code.data(), code.size(), &instruction)) ||
 				instruction.length == 0 || instruction.length > code.size()) {
 				marks[offset] = 2;
 				unknownEdge = true;
@@ -94,14 +93,14 @@ namespace REL::detail
 			};
 			if (category == ZYDIS_CATEGORY_RET) continue;
 			if (category == ZYDIS_CATEGORY_UNCOND_BR || category == ZYDIS_CATEGORY_COND_BR) {
-				if (instruction.operand_count_visible != 0 && operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operands[0].imm.is_relative) {
+				if (instruction.operand_count != 0 && instruction.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE && instruction.operands[0].imm.is_relative) {
 					// x86-64 direct branch displacements are at most signed 32-bit.
-					pushInternal(static_cast<std::int64_t>(next) + operands[0].imm.value.s);
-				} else if (category == ZYDIS_CATEGORY_UNCOND_BR && instruction.operand_count_visible != 0 &&
-					operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && operands[0].size == 64 &&
-					operands[0].mem.base == ZYDIS_REGISTER_RIP && operands[0].mem.index == ZYDIS_REGISTER_NONE &&
+					pushInternal(static_cast<std::int64_t>(next) + instruction.operands[0].imm.value.s);
+				} else if (category == ZYDIS_CATEGORY_UNCOND_BR && instruction.operand_count != 0 &&
+					instruction.operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instruction.operands[0].size == 64 &&
+					instruction.operands[0].mem.base == ZYDIS_REGISTER_RIP && instruction.operands[0].mem.index == ZYDIS_REGISTER_NONE &&
 					!(instruction.attributes & (ZYDIS_ATTRIB_HAS_SEGMENT_FS | ZYDIS_ATTRIB_HAS_SEGMENT_GS))) {
-					const auto slot = static_cast<std::int64_t>(next) + operands[0].mem.disp.value;
+					const auto slot = static_cast<std::int64_t>(next) + instruction.operands[0].mem.disp.value;
 					const auto pointer = slot >= 0 && slot <= UINT32_MAX ?
 						a_readPointer(static_cast<std::uint32_t>(slot)) : std::optional<std::uint64_t>{};
 					if (!pointer) unknownEdge = true;

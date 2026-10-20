@@ -2,6 +2,7 @@
 
 #include "RE/Bethesda/Atomic.h"
 #include "RE/Bethesda/BGSBodyPartDefs.h"
+#include "RE/Bethesda/BSCoreTypes.h"
 #include "RE/Bethesda/BSFixedString.h"
 #include "RE/Bethesda/BSLock.h"
 #include "RE/Bethesda/BSPointerHandle.h"
@@ -13,6 +14,7 @@
 #include "RE/Bethesda/BSTSmartPointer.h"
 #include "RE/Bethesda/BSTTuple.h"
 #include "RE/Bethesda/FormComponents.h"
+#include "RE/Bethesda/ImageSpaceData.h"
 #include "RE/Bethesda/Movement.h"
 #include "RE/Bethesda/Settings.h"
 #include "RE/Bethesda/TESCondition.h"
@@ -20,8 +22,7 @@
 #include "RE/Bethesda/bhkPickData.h"
 #include "RE/NetImmerse/NiColor.h"
 #include "RE/NetImmerse/NiFlags.h"
-#include "RE/NetImmerse/NiPoint2.h"
-#include "RE/NetImmerse/NiPoint3.h"
+#include "RE/NetImmerse/NiPoint.h"
 #include "RE/NetImmerse/NiSmartPointer.h"
 
 namespace RE
@@ -378,8 +379,6 @@ namespace RE
 	enum class _D3DCMPFUNC;  // NOLINT(bugprone-reserved-identifier)
 	enum class CHUNK_ID;
 	enum class COMMAND_REFUSAL_TYPE;
-	enum class DIALOGUE_SUBTYPE;
-	enum class DIALOGUE_TYPE;
 	enum class SOUND_LEVEL;
 	enum class STAGGER_MAGNITUDE;
 
@@ -480,7 +479,6 @@ namespace RE
 	class TESPackageData;
 	class TESRegionDataList;
 	class TESRegionPointList;
-	class TESResponse;
 
 	struct BGSDebrisData;
 	struct FORM;
@@ -600,9 +598,9 @@ namespace RE
 	{
 	public:
 		// members
-		ENUM_FORM_ID formID;     // 00
-		const char* formString;  // 08 - "GRUP"
-		std::uint32_t formCode;  // 10 - 'PURG'
+		ENUM_FORM_ID  formID;      // 00
+		const char*   formString;  // 08 - "GRUP"
+		std::uint32_t formCode;    // 10 - 'PURG'
 	};
 	static_assert(sizeof(FORM_ENUM_STRING) == 0x18);
 
@@ -634,30 +632,9 @@ namespace RE
 		public:
 			std::int32_t operator()(const TESForm* a_arg1, const TESForm* a_arg2)
 			{
-				if (!a_arg1) {
-					return a_arg2 ? -1 : 0;
-				}
-				if (!a_arg2) {
-					return 1;
-				}
-
-				REL::Relocation<FORM_ENUM_STRING(*)[159]> formEnums{ REL::ID(1309967, 1309967) };
-				const auto lhsType = stl::to_underlying(a_arg1->GetFormType());
-				const auto rhsType = stl::to_underlying(a_arg2->GetFormType());
-				const auto lhsCode = (*formEnums)[lhsType].formCode;
-				const auto rhsCode = (*formEnums)[rhsType].formCode;
-				if (lhsCode != rhsCode) {
-					return lhsCode > rhsCode ? 1 : -1;
-				}
-
-				const auto editorIDResult = std::strcmp(a_arg1->GetFormEditorID(), a_arg2->GetFormEditorID());
-				if (editorIDResult != 0) {
-					return editorIDResult;
-				}
-
-				const auto lhsFormID = a_arg1->GetFormID();
-				const auto rhsFormID = a_arg2->GetFormID();
-				return lhsFormID == rhsFormID ? 0 : (lhsFormID > rhsFormID ? 1 : -1);
+				using func_t = decltype(&FormSortFunc::operator());
+				static REL::Relocation<func_t> func{ REL::ID(705530) };
+				return func(this, a_arg1, a_arg2);
 			}
 		};
 		static_assert(std::is_empty_v<FormSortFunc>);
@@ -668,78 +645,78 @@ namespace RE
 		void CopyComponent(BaseFormComponent*) override { return; }  // 06
 
 		// add
-		virtual void InitializeData() { return; }                                                                                                                                                                                     // 07
-		virtual void ClearData() { return; }                                                                                                                                                                                          // 08
-		virtual bool Load([[maybe_unused]] TESFile* a_file) { return true; }                                                                                                                                                          // 09
-		virtual bool LoadPartial([[maybe_unused]] TESFile* a_file) { return true; }                                                                                                                                                   // 0A
-		virtual bool LoadEdit(TESFile* a_file) { return Load(a_file); }                                                                                                                                                               // 0B
-		virtual TESForm* CreateDuplicateForm(bool a_createEditorID, BSTHashMap<TESForm*, TESForm*>* a_copyMap);                                                                                                                       // 0C
-		virtual bool AddChange(std::uint32_t a_changeFlags);                                                                                                                                                                          // 0D
-		virtual void RemoveChange(std::uint32_t a_changeFlags);                                                                                                                                                                       // 0E
-		virtual bool FindInFileFast([[maybe_unused]] TESFile* a_file) { return false; }                                                                                                                                               // 0F
-		virtual bool CheckSaveGame([[maybe_unused]] BGSSaveFormBuffer* a_saveGameBuffer) const { return true; }                                                                                                                       // 10
-		virtual void SaveGame(BGSSaveFormBuffer* a_saveGameBuffer);                                                                                                                                                                   // 11
-		virtual void LoadGame(BGSLoadFormBuffer* a_loadGameBuffer);                                                                                                                                                                   // 12
-		virtual void InitLoadGame([[maybe_unused]] BGSLoadFormBuffer* a_loadGameBuffer) { return; }                                                                                                                                   // 13
-		virtual void FinishLoadGame([[maybe_unused]] BGSLoadFormBuffer* a_loadGameBuffer) { return; }                                                                                                                                 // 14
-		virtual void Revert([[maybe_unused]] BGSLoadFormBuffer* a_loadGameBuffer) { return; }                                                                                                                                         // 15
-		virtual void InitItemImpl() { return; }                                                                                                                                                                                       // 16
-		virtual TESFile* GetRevertFile() const;                                                                                                                                                                                       // 17
-		virtual TESFile* GetDescriptionOwnerFile() const;                                                                                                                                                                             // 18
-		virtual ENUM_FORM_ID GetSavedFormType() const { return *formType; }                                                                                                                                                           // 19
-		virtual void GetFormDetailedString(char* a_dest, std::uint32_t a_size) const;                                                                                                                                                 // 1A
-		virtual bool GetKnown() const { return (formFlags >> 6) & 1; }                                                                                                                                                                // 1B
-		virtual bool GetRandomAnim() const { return (formFlags >> 16) & 1; }                                                                                                                                                          // 1C
-		virtual bool GetPlayable([[maybe_unused]] const TBO_InstanceData* a_data) const { return (formFlags >> 2) & 1; }                                                                                                              // 1D
-		virtual bool IsHeadingMarker() const { return false; }                                                                                                                                                                        // 1E
-		virtual bool IsHeadtrackMarker() const { return false; }                                                                                                                                                                      // 1F
-		virtual bool GetDangerous() const { return (formFlags >> 17) & 1; }                                                                                                                                                           // 20
-		virtual bool QHasCurrents() const { return (formFlags >> 19) & 1; }                                                                                                                                                           // 21
-		virtual bool GetObstacle() const { return (formFlags >> 25) & 1; }                                                                                                                                                            // 22
-		virtual bool QIsLODLandObject() const { return false; }                                                                                                                                                                       // 23
-		virtual bool GetOnLocalMap() const { return (formFlags >> 9) & 1; }                                                                                                                                                           // 24
-		virtual bool GetMustUpdate() const { return (formFlags >> 8) & 1; }                                                                                                                                                           // 25
-		virtual void SetOnLocalMap(bool a_val);                                                                                                                                                                                       // 26
-		virtual bool GetIgnoredBySandbox() const { return false; }                                                                                                                                                                    // 27
-		virtual void SetDelete(bool a_deleted);                                                                                                                                                                                       // 28
-		virtual void SetAltered(bool a_altered);                                                                                                                                                                                      // 29
-		virtual void SaveObjectBound() { return; }                                                                                                                                                                                    // 2A
-		virtual void LoadObjectBound([[maybe_unused]] TESFile* a_file) { return; }                                                                                                                                                    // 2B
-		virtual void SavePreviewTransform(CHUNK_ID) { return; }                                                                                                                                                                       // 2C
-		virtual void LoadPreviewTransform([[maybe_unused]] TESFile* a_file) { return; }                                                                                                                                               // 2D
-		virtual bool IsBoundObject() const { return false; }                                                                                                                                                                          // 2E
-		virtual bool IsObject() const { return false; }                                                                                                                                                                               // 2F
-		virtual bool IsMagicItem() const { return false; }                                                                                                                                                                            // 30
-		virtual bool IsWater() const { return false; }                                                                                                                                                                                // 31
-		virtual TESObjectREFR* IsReference() { return nullptr; }                                                                                                                                                                      // 33
-		virtual const TESObjectREFR* IsReference() const { return nullptr; }                                                                                                                                                          // 32
-		virtual std::uint32_t GetRefCount() const { return 0; }                                                                                                                                                                       // 34
-		virtual const char* GetTextForParsedSubTag(const BSFixedString& a_subTag) const;                                                                                                                                              // 35
-		virtual void Copy([[maybe_unused]] TESForm* a_copy) { return; }                                                                                                                                                               // 36
-		virtual bool BelongsInGroup(FORM* a_groupFORM, bool a_allowParentGroups, bool a_currentOnly);                                                                                                                                 // 37
-		virtual void CreateGroupData(FORM* a_outGroupFORM, FORM_GROUP* a_parentGroup);                                                                                                                                                // 38
-		virtual std::uint32_t GetFormEditorIDLength() const;                                                                                                                                                                          // 39
-		virtual const char* GetFormEditorID() const { return ""; }                                                                                                                                                                    // 3A
-		virtual bool SetFormEditorID([[maybe_unused]] const char* a_editorID) { return true; }                                                                                                                                        // 3B
-		virtual bool IsParentForm() { return false; }                                                                                                                                                                                 // 3C
-		virtual bool IsParentFormTree() { return false; }                                                                                                                                                                             // 3D
-		virtual bool IsFormTypeChild([[maybe_unused]] std::uint8_t a_type) { return false; }                                                                                                                                          // 3E
-		virtual bool LoopingActivate(TESObjectREFR* a_itemActivated, TESObjectREFR* a_actionRef) { return Activate(a_itemActivated, a_actionRef, nullptr, 1); }                                                                       // 3F
-		virtual bool Activate([[maybe_unused]] TESObjectREFR* a_itemActivated, [[maybe_unused]] TESObjectREFR* a_actionRef, [[maybe_unused]] TESBoundObject* a_objectToGet, [[maybe_unused]] std::int32_t a_count) { return false; }  // 40
-		virtual void SetFormID(std::uint32_t a_id, bool a_updateFile);                                                                                                                                                                // 41
-		virtual const char* GetObjectTypeName() const { return ""; }                                                                                                                                                                  // 42
-		virtual bool QAvailableInGame() const { return true; }                                                                                                                                                                        // 43
-		virtual BGSMod::Template::Items* GetObjectTemplate() { return nullptr; }                                                                                                                                                      // 44
-		virtual BGSPreviewTransform* GetPreviewTransform() { return nullptr; }                                                                                                                                                        // 45
-		virtual BGSSoundTagComponent* GetSoundTagComponent() { return nullptr; }                                                                                                                                                      // 46
-		virtual std::uint32_t GetFilledSlots() const;                                                                                                                                                                                 // 47
-		virtual std::uint32_t GetFilledSlotsImpl() const { return static_cast<std::uint32_t>(-1); }                                                                                                                                   // 48
-		virtual float GetDesirability([[maybe_unused]] TBO_InstanceData* a_instanceData, [[maybe_unused]] const TESForm* a_user) const { return 0.0F; }                                                                               // 49
+		virtual void                     InitializeData() { return; }                                                                                                                                                                                     // 07
+		virtual void                     ClearData() { return; }                                                                                                                                                                                          // 08
+		virtual bool                     Load([[maybe_unused]] TESFile* a_file) { return true; }                                                                                                                                                          // 09
+		virtual bool                     LoadPartial([[maybe_unused]] TESFile* a_file) { return true; }                                                                                                                                                   // 0A
+		virtual bool                     LoadEdit(TESFile* a_file) { return Load(a_file); }                                                                                                                                                               // 0B
+		virtual TESForm*                 CreateDuplicateForm(bool a_createEditorID, BSTHashMap<TESForm*, TESForm*>* a_copyMap);                                                                                                                           // 0C
+		virtual bool                     AddChange(std::uint32_t a_changeFlags);                                                                                                                                                                          // 0D
+		virtual void                     RemoveChange(std::uint32_t a_changeFlags);                                                                                                                                                                       // 0E
+		virtual bool                     FindInFileFast([[maybe_unused]] TESFile* a_file) { return false; }                                                                                                                                               // 0F
+		virtual bool                     CheckSaveGame([[maybe_unused]] BGSSaveFormBuffer* a_saveGameBuffer) const { return true; }                                                                                                                       // 10
+		virtual void                     SaveGame(BGSSaveFormBuffer* a_saveGameBuffer);                                                                                                                                                                   // 11
+		virtual void                     LoadGame(BGSLoadFormBuffer* a_loadGameBuffer);                                                                                                                                                                   // 12
+		virtual void                     InitLoadGame([[maybe_unused]] BGSLoadFormBuffer* a_loadGameBuffer) { return; }                                                                                                                                   // 13
+		virtual void                     FinishLoadGame([[maybe_unused]] BGSLoadFormBuffer* a_loadGameBuffer) { return; }                                                                                                                                 // 14
+		virtual void                     Revert([[maybe_unused]] BGSLoadFormBuffer* a_loadGameBuffer) { return; }                                                                                                                                         // 15
+		virtual void                     InitItemImpl() { return; }                                                                                                                                                                                       // 16
+		virtual TESFile*                 GetRevertFile() const;                                                                                                                                                                                           // 17
+		virtual TESFile*                 GetDescriptionOwnerFile() const;                                                                                                                                                                                 // 18
+		virtual ENUM_FORM_ID             GetSavedFormType() const { return *formType; }                                                                                                                                                                   // 19
+		virtual void                     GetFormDetailedString(char* a_dest, std::uint32_t a_size) const;                                                                                                                                                 // 1A
+		virtual bool                     GetKnown() const { return (formFlags >> 6) & 1; }                                                                                                                                                                // 1B
+		virtual bool                     GetRandomAnim() const { return (formFlags >> 16) & 1; }                                                                                                                                                          // 1C
+		virtual bool                     GetPlayable([[maybe_unused]] const TBO_InstanceData* a_data) const { return (formFlags >> 2) & 1; }                                                                                                              // 1D
+		virtual bool                     IsHeadingMarker() const { return false; }                                                                                                                                                                        // 1E
+		virtual bool                     IsHeadtrackMarker() const { return false; }                                                                                                                                                                      // 1F
+		virtual bool                     GetDangerous() const { return (formFlags >> 17) & 1; }                                                                                                                                                           // 20
+		virtual bool                     QHasCurrents() const { return (formFlags >> 19) & 1; }                                                                                                                                                           // 21
+		virtual bool                     GetObstacle() const { return (formFlags >> 25) & 1; }                                                                                                                                                            // 22
+		virtual bool                     QIsLODLandObject() const { return false; }                                                                                                                                                                       // 23
+		virtual bool                     GetOnLocalMap() const { return (formFlags >> 9) & 1; }                                                                                                                                                           // 24
+		virtual bool                     GetMustUpdate() const { return (formFlags >> 8) & 1; }                                                                                                                                                           // 25
+		virtual void                     SetOnLocalMap(bool a_val);                                                                                                                                                                                       // 26
+		virtual bool                     GetIgnoredBySandbox() const { return false; }                                                                                                                                                                    // 27
+		virtual void                     SetDelete(bool a_deleted);                                                                                                                                                                                       // 28
+		virtual void                     SetAltered(bool a_altered);                                                                                                                                                                                      // 29
+		virtual void                     SaveObjectBound() { return; }                                                                                                                                                                                    // 2A
+		virtual void                     LoadObjectBound([[maybe_unused]] TESFile* a_file) { return; }                                                                                                                                                    // 2B
+		virtual void                     SavePreviewTransform(CHUNK_ID) { return; }                                                                                                                                                                       // 2C
+		virtual void                     LoadPreviewTransform([[maybe_unused]] TESFile* a_file) { return; }                                                                                                                                               // 2D
+		virtual bool                     IsBoundObject() const { return false; }                                                                                                                                                                          // 2E
+		virtual bool                     IsObject() const { return false; }                                                                                                                                                                               // 2F
+		virtual bool                     IsMagicItem() const { return false; }                                                                                                                                                                            // 30
+		virtual bool                     IsWater() const { return false; }                                                                                                                                                                                // 31
+		virtual TESObjectREFR*           IsReference() { return nullptr; }                                                                                                                                                                                // 33
+		virtual const TESObjectREFR*     IsReference() const { return nullptr; }                                                                                                                                                                          // 32
+		virtual std::uint32_t            GetRefCount() const { return 0; }                                                                                                                                                                                // 34
+		virtual const char*              GetTextForParsedSubTag(const BSFixedString& a_subTag) const;                                                                                                                                                     // 35
+		virtual void                     Copy([[maybe_unused]] TESForm* a_copy) { return; }                                                                                                                                                               // 36
+		virtual bool                     BelongsInGroup(FORM* a_groupFORM, bool a_allowParentGroups, bool a_currentOnly);                                                                                                                                 // 37
+		virtual void                     CreateGroupData(FORM* a_outGroupFORM, FORM_GROUP* a_parentGroup);                                                                                                                                                // 38
+		virtual std::uint32_t            GetFormEditorIDLength() const;                                                                                                                                                                                   // 39
+		virtual const char*              GetFormEditorID() const { return ""; }                                                                                                                                                                           // 3A
+		virtual bool                     SetFormEditorID([[maybe_unused]] const char* a_editorID) { return true; }                                                                                                                                        // 3B
+		virtual bool                     IsParentForm() { return false; }                                                                                                                                                                                 // 3C
+		virtual bool                     IsParentFormTree() { return false; }                                                                                                                                                                             // 3D
+		virtual bool                     IsFormTypeChild([[maybe_unused]] std::uint8_t a_type) { return false; }                                                                                                                                          // 3E
+		virtual bool                     LoopingActivate(TESObjectREFR* a_itemActivated, TESObjectREFR* a_actionRef) { return Activate(a_itemActivated, a_actionRef, nullptr, 1); }                                                                       // 3F
+		virtual bool                     Activate([[maybe_unused]] TESObjectREFR* a_itemActivated, [[maybe_unused]] TESObjectREFR* a_actionRef, [[maybe_unused]] TESBoundObject* a_objectToGet, [[maybe_unused]] std::int32_t a_count) { return false; }  // 40
+		virtual void                     SetFormID(TESFormID a_formID, bool a_updateFile);                                                                                                                                                                // 41
+		virtual const char*              GetObjectTypeName() const { return ""; }                                                                                                                                                                         // 42
+		virtual bool                     QAvailableInGame() const { return true; }                                                                                                                                                                        // 43
+		virtual BGSMod::Template::Items* GetObjectTemplate() { return nullptr; }                                                                                                                                                                          // 44
+		virtual BGSPreviewTransform*     GetPreviewTransform() { return nullptr; }                                                                                                                                                                        // 45
+		virtual BGSSoundTagComponent*    GetSoundTagComponent() { return nullptr; }                                                                                                                                                                       // 46
+		virtual std::uint32_t            GetFilledSlots() const;                                                                                                                                                                                          // 47
+		virtual std::uint32_t            GetFilledSlotsImpl() const { return static_cast<std::uint32_t>(-1); }                                                                                                                                            // 48
+		virtual float                    GetDesirability([[maybe_unused]] TBO_InstanceData* a_instanceData, [[maybe_unused]] const TESForm* a_user) const { return 0.0F; }                                                                                // 49
 
 		static void AddCompileIndex(std::uint32_t& a_id, TESFile* a_file)
 		{
 			using func_t = decltype(&TESForm::AddCompileIndex);
-			REL::Relocation<func_t> func{ REL::ID(1315637, 2193152) };
+			static REL::Relocation<func_t> func{ REL::ID(1315637, 2193152) };
 			return func(a_id, a_file);
 		}
 
@@ -748,8 +725,10 @@ namespace RE
 				BSTHashMap<std::uint32_t, TESForm*>*,
 				std::reference_wrapper<BSReadWriteLock>>
 		{
-			REL::Relocation<BSTHashMap<std::uint32_t, TESForm*>**> allForms{ REL::ID(422985, 4796465) };
-			REL::Relocation<BSReadWriteLock*> allFormsMapLock{ REL::ID(691815, 4796476) };
+			// The former second IDs are 1.10.984-only.  These exact AE IDs
+			// resolve to the 1.11.221 form map and its lock, respectively.
+			static REL::Relocation<BSTHashMap<std::uint32_t, TESForm*>**> allForms{ REL::ID(422985, 4796465) };
+			static REL::Relocation<BSReadWriteLock*>                      allFormsMapLock{ REL::ID(691815, 4796476) };
 			return { *allForms, *allFormsMapLock };
 		}
 
@@ -758,8 +737,8 @@ namespace RE
 				BSTHashMap<BSFixedString, TESForm*>*,
 				std::reference_wrapper<BSReadWriteLock>>
 		{
-			REL::Relocation<BSTHashMap<BSFixedString, TESForm*>**> allFormsByEditorID{ REL::ID(642758, 4796466) };
-			REL::Relocation<BSReadWriteLock*> allFormsEditorIDMapLock{ REL::ID(910917, 4796477) };
+			static REL::Relocation<BSTHashMap<BSFixedString, TESForm*>**> allFormsByEditorID{ REL::ID(642758, 4796466) };
+			static REL::Relocation<BSReadWriteLock*>                      allFormsEditorIDMapLock{ REL::ID(910917, 4796477) };
 			return { *allFormsByEditorID, *allFormsEditorIDMapLock };
 		}
 
@@ -771,11 +750,11 @@ namespace RE
 		[[nodiscard]] TESFile* GetFile(std::int32_t a_index = -1) const
 		{
 			using func_t = decltype(&TESForm::GetFile);
-			REL::Relocation<func_t> func{ REL::ID(1376557, 2193103) };
+			static REL::Relocation<func_t> func{ REL::ID(1376557, 2193103) };
 			return func(this, a_index);
 		}
 
-		[[nodiscard]] static TESForm* GetFormByID(std::uint32_t a_formID)
+		[[nodiscard]] static TESForm* GetFormByID(TESFormID a_formID)
 		{
 			const auto& [map, lock] = GetAllForms();
 			BSAutoReadLock l{ lock };
@@ -788,7 +767,7 @@ namespace RE
 		}
 
 		template <class T>
-		[[nodiscard]] static T* GetFormByID(std::uint32_t a_formID)
+		[[nodiscard]] static T* GetFormByID(TESFormID a_formID)
 		{
 			const auto form = GetFormByID(a_formID);
 			return form ? form->As<T>() : nullptr;
@@ -815,22 +794,33 @@ namespace RE
 
 		[[nodiscard]] static std::span<FORM_ENUM_STRING, 159> GetFormEnumString()
 		{
-			REL::Relocation<FORM_ENUM_STRING(*)[159]> functions{ REL::ID(1309967, 1309967) };
+			static REL::Relocation<FORM_ENUM_STRING(*)[159]> functions{ REL::ID(1309967) };
 			return { *functions };
 		}
 
 		[[nodiscard]] static ENUM_FORM_ID GetFormTypeFromString(const char* a_formTypeString)
 		{
 			using func_t = decltype(&TESForm::GetFormTypeFromString);
-			REL::Relocation<func_t> func{ REL::ID(565203, 2193108) };
+			static REL::Relocation<func_t> func{ REL::ID(565203, 2193108) };
 			return func(a_formTypeString);
 		}
 
-		[[nodiscard]] std::uint32_t GetFormFlags() const noexcept { return formFlags; }
-		[[nodiscard]] std::uint32_t GetFormID() const noexcept { return formID; }
-		[[nodiscard]] ENUM_FORM_ID GetFormType() const noexcept { return *formType; }
+		[[nodiscard]] static const char* GetFormTypeString(ENUM_FORM_ID a_formType)
+		{
+			auto formEnumString = GetFormEnumString();
+			return formEnumString[std::to_underlying(a_formType)].formString;
+		}
 
-		[[nodiscard]] std::uint32_t GetLocalFormID()
+		[[nodiscard]] const char* GetFormTypeString() const
+		{
+			return GetFormTypeString(GetFormType());
+		}
+
+		[[nodiscard]] std::uint32_t GetFormFlags() const noexcept { return formFlags; }
+		[[nodiscard]] TESFormID     GetFormID() const noexcept { return formID; }
+		[[nodiscard]] ENUM_FORM_ID  GetFormType() const noexcept { return *formType; }
+
+		[[nodiscard]] TESFormID GetLocalFormID()
 		{
 			auto file = GetFile(0);
 
@@ -844,7 +834,7 @@ namespace RE
 		template <class... Args>
 
 		[[nodiscard]] bool Is(Args... a_args) const noexcept  //
-			requires(std::same_as<Args, ENUM_FORM_ID>&&...)
+			requires(std::same_as<Args, ENUM_FORM_ID> && ...)
 		{
 			return (Is(a_args) || ...);
 		}
@@ -861,13 +851,14 @@ namespace RE
 		[[nodiscard]] bool IsAlchemyItem() const noexcept { return Is(ENUM_FORM_ID::kALCH); }
 		[[nodiscard]] bool IsCreated() const noexcept { return (formID >> (8 * 3)) == 0xFF; }
 		[[nodiscard]] bool IsDeleted() noexcept { return (formFlags & (1u << 5)) != 0; }
+		[[nodiscard]] bool IsDisabled() noexcept { return (formFlags & (1u << 11)) != 0; }
 		[[nodiscard]] bool IsInitialized() const noexcept { return (formFlags & (1u << 3)) != 0; }
 
 		[[nodiscard]] bool IsNot(ENUM_FORM_ID a_type) const noexcept { return !Is(a_type); }
 		template <class... Args>
 
 		[[nodiscard]] bool IsNot(Args... a_args) const noexcept  //
-			requires(std::same_as<Args, ENUM_FORM_ID>&&...)
+			requires(std::same_as<Args, ENUM_FORM_ID> && ...)
 		{
 			return (IsNot(a_args) && ...);
 		}
@@ -890,7 +881,7 @@ namespace RE
 		void SetTemporary()
 		{
 			using func_t = decltype(&TESForm::SetTemporary);
-			REL::Relocation<func_t> func{ REL::ID(482454, 2193125) };
+			static REL::Relocation<func_t> func{ REL::ID(482454) };
 			return func(this);
 		}
 
@@ -917,11 +908,11 @@ namespace RE
 		[[nodiscard]] const T* As() const noexcept;
 
 		// members
-		TESFileContainer sourceFiles;                           // 08
-		std::uint32_t formFlags;                                // 10
-		std::uint32_t formID;                                   // 14
-		std::uint16_t inGameFormFlags;                          // 18
-		stl::enumeration<ENUM_FORM_ID, std::uint8_t> formType;  // 1A
+		TESFileContainer                         sourceFiles;      // 08
+		std::uint32_t                            formFlags;        // 10
+		TESFormID                                formID;           // 14
+		std::uint16_t                            inGameFormFlags;  // 18
+		REX::EnumSet<ENUM_FORM_ID, std::uint8_t> formType;         // 1A
 	};
 	static_assert(sizeof(TESForm) == 0x20);
 
@@ -933,14 +924,12 @@ namespace RE
 		static constexpr auto VTABLE{ VTABLE::BGSKeyword };
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kKYWD };
 
-		using KeywordType = RE::KeywordType;
-
 		[[nodiscard]] static uint16_t GetIndexForTypedKeyword(const BGSKeyword* a_keyword, KeywordType a_type)
 		{
 			assert(a_type < KeywordType::kTotal);
 			const auto keywords = GetTypedKeywords();
 			if (keywords) {
-				const auto& arr = (*keywords)[stl::to_underlying(a_type)];
+				const auto& arr = (*keywords)[std::to_underlying(a_type)];
 				for (uint16_t i = 0; i < arr.size(); ++i) {
 					if (arr[i] == a_keyword) {
 						return i;
@@ -955,7 +944,7 @@ namespace RE
 			assert(a_type < KeywordType::kTotal);
 			const auto keywords = GetTypedKeywords();
 			if (keywords) {
-				const auto& arr = (*keywords)[stl::to_underlying(a_type)];
+				const auto& arr = (*keywords)[std::to_underlying(a_type)];
 				return a_index < arr.size() ? arr[a_index] : nullptr;
 			} else {
 				return nullptr;
@@ -963,9 +952,9 @@ namespace RE
 		}
 
 		[[nodiscard]] static auto GetTypedKeywords()
-			-> std::optional<std::span<BSTArray<BGSKeyword*>, stl::to_underlying(KeywordType::kTotal)>>
+			-> std::optional<std::span<BSTArray<BGSKeyword*>, std::to_underlying(KeywordType::kTotal)>>
 		{
-			REL::Relocation<BSTArray<BGSKeyword*>(*)[stl::to_underlying(KeywordType::kTotal)]> keywords{ REL::ID(1095775, 4799330) };
+			static REL::Relocation<BSTArray<BGSKeyword*>(*)[std::to_underlying(KeywordType::kTotal)]> keywords{ REL::ID(1095775) };
 			if (*keywords) {
 				return { *keywords };
 			} else {
@@ -1015,9 +1004,9 @@ namespace RE
 			// members
 			NiPoint3 position;  // 00
 			NiPoint3 rotation;  // 0C
-			float scale;        // 18
-			float minZoom;      // 1C
-			float maxZoom;      // 20
+			float    scale;     // 18
+			float    minZoom;   // 1C
+			float    maxZoom;   // 20
 		};
 		static_assert(sizeof(TransformData) == 0x24);
 
@@ -1049,7 +1038,7 @@ namespace RE
 
 		// members
 		BSStringT<char> formEditorID;  // 20
-		float value;                   // 30
+		float           value;         // 30
 	};
 	static_assert(sizeof(TESGlobal) == 0x38);
 
@@ -1066,7 +1055,7 @@ namespace RE
 		public:
 			// members
 			ActorValueInfo* resistance;  // 00
-			MagicItem* spell;            // 08
+			MagicItem*      spell;       // 08
 		};
 		static_assert(sizeof(Data) == 0x10);
 
@@ -1079,8 +1068,8 @@ namespace RE
 	{
 	public:
 		// members
-		std::int32_t serviceFlags;  // 0
-		float bleedoutDefault;      // 4
+		std::int32_t serviceFlags;     // 0
+		float        bleedoutDefault;  // 4
 	};
 	static_assert(sizeof(CLASS_DATA) == 0x8);
 
@@ -1156,44 +1145,44 @@ namespace RE
 			};
 
 			// members
-			stl::enumeration<Flag, std::uint32_t> flags;                              // 000
-			float baseCost;                                                           // 004
-			TESForm* associatedForm;                                                  // 008
-			ActorValueInfo* associatedSkill;                                          // 010
-			ActorValueInfo* resistVariable;                                           // 018
-			std::int16_t numCounterEffects;                                           // 020
-			TESObjectLIGH* light;                                                     // 028
-			float taperWeight;                                                        // 030
-			TESEffectShader* effectShader;                                            // 038
-			TESEffectShader* enchantEffect;                                           // 040
-			std::int32_t minimumSkill;                                                // 048
-			std::int32_t spellmakingArea;                                             // 04C
-			float spellmakingChargeTime;                                              // 050
-			float taperCurve;                                                         // 054
-			float taperDuration;                                                      // 058
-			float secondaryAVWeight;                                                  // 05C
-			stl::enumeration<EffectArchetypes::ArchetypeID, std::int32_t> archetype;  // 060
-			ActorValueInfo* primaryAV;                                                // 068
-			BGSProjectile* projectileBase;                                            // 070
-			BGSExplosion* explosion;                                                  // 078
-			stl::enumeration<MagicSystem::CastingType, std::int32_t> castingType;     // 080
-			stl::enumeration<MagicSystem::Delivery, std::int32_t> delivery;           // 084
-			ActorValueInfo* secondaryAV;                                              // 088
-			BGSArtObject* castingArt;                                                 // 090
-			BGSArtObject* hitEffectArt;                                               // 098
-			BGSImpactDataSet* impactDataSet;                                          // 0A0
-			float skillUsageMult;                                                     // 0A8
-			BGSDualCastData* dualCastData;                                            // 0B0
-			float dualCastScale;                                                      // 0B8
-			BGSArtObject* enchantEffectArt;                                           // 0C0
-			BGSReferenceEffect* hitVisuals;                                           // 0C8
-			BGSReferenceEffect* enchantVisuals;                                       // 0D0
-			SpellItem* equipAbility;                                                  // 0D8
-			TESImageSpaceModifier* imageSpaceMod;                                     // 0E0
-			BGSPerk* perk;                                                            // 0E8
-			stl::enumeration<SOUND_LEVEL, std::int32_t> castingSoundLevel;            // 0F0
-			float aiScore;                                                            // 0F4
-			float aiDelayTime;                                                        // 0F8
+			REX::EnumSet<Flag, std::uint32_t>                         flags;                  // 000
+			float                                                     baseCost;               // 004
+			TESForm*                                                  associatedForm;         // 008
+			ActorValueInfo*                                           associatedSkill;        // 010
+			ActorValueInfo*                                           resistVariable;         // 018
+			std::int16_t                                              numCounterEffects;      // 020
+			TESObjectLIGH*                                            light;                  // 028
+			float                                                     taperWeight;            // 030
+			TESEffectShader*                                          effectShader;           // 038
+			TESEffectShader*                                          enchantEffect;          // 040
+			std::int32_t                                              minimumSkill;           // 048
+			std::int32_t                                              spellmakingArea;        // 04C
+			float                                                     spellmakingChargeTime;  // 050
+			float                                                     taperCurve;             // 054
+			float                                                     taperDuration;          // 058
+			float                                                     secondaryAVWeight;      // 05C
+			REX::EnumSet<EffectArchetypes::ArchetypeID, std::int32_t> archetype;              // 060
+			ActorValueInfo*                                           primaryAV;              // 068
+			BGSProjectile*                                            projectileBase;         // 070
+			BGSExplosion*                                             explosion;              // 078
+			REX::EnumSet<MagicSystem::CastingType, std::int32_t>      castingType;            // 080
+			REX::EnumSet<MagicSystem::Delivery, std::int32_t>         delivery;               // 084
+			ActorValueInfo*                                           secondaryAV;            // 088
+			BGSArtObject*                                             castingArt;             // 090
+			BGSArtObject*                                             hitEffectArt;           // 098
+			BGSImpactDataSet*                                         impactDataSet;          // 0A0
+			float                                                     skillUsageMult;         // 0A8
+			BGSDualCastData*                                          dualCastData;           // 0B0
+			float                                                     dualCastScale;          // 0B8
+			BGSArtObject*                                             enchantEffectArt;       // 0C0
+			BGSReferenceEffect*                                       hitVisuals;             // 0C8
+			BGSReferenceEffect*                                       enchantVisuals;         // 0D0
+			SpellItem*                                                equipAbility;           // 0D8
+			TESImageSpaceModifier*                                    imageSpaceMod;          // 0E0
+			BGSPerk*                                                  perk;                   // 0E8
+			REX::EnumSet<SOUND_LEVEL, std::int32_t>                   castingSoundLevel;      // 0F0
+			float                                                     aiScore;                // 0F4
+			float                                                     aiDelayTime;            // 0F8
 		};
 		static_assert(sizeof(EffectSettingData) == 0x100);
 
@@ -1201,21 +1190,21 @@ namespace RE
 		{
 		public:
 			// members
-			stl::enumeration<MagicSystem::SoundID, std::int32_t> id;  // 00
-			BGSSoundDescriptorForm* sound;                            // 08
+			REX::EnumSet<MagicSystem::SoundID, std::int32_t> id;     // 00
+			BGSSoundDescriptorForm*                          sound;  // 08
 		};
 		static_assert(sizeof(SoundPair) == 0x10);
 
 		// members
-		FilterValidationFunction_t* filterValidationFunction;  // 060
-		void* filterValidationItem;                            // 068
-		EffectSettingData data;                                // 070
-		BSSimpleList<EffectSetting*> counterEffects;           // 170
-		BSTArray<EffectSetting::SoundPair> effectSounds;       // 180
-		BGSLocalizedString magicItemDescription;               // 198
-		std::int32_t effectLoadedCount;                        // 1A0
-		std::int32_t associatedItemLoadedCount;                // 1A4
-		TESCondition conditions;                               // 1A8
+		FilterValidationFunction_t*        filterValidationFunction;   // 060
+		void*                              filterValidationItem;       // 068
+		EffectSettingData                  data;                       // 070
+		BSSimpleList<EffectSetting*>       counterEffects;             // 170
+		BSTArray<EffectSetting::SoundPair> effectSounds;               // 180
+		BGSLocalizedString                 magicItemDescription;       // 198
+		std::int32_t                       effectLoadedCount;          // 1A0
+		std::int32_t                       associatedItemLoadedCount;  // 1A4
+		TESCondition                       conditions;                 // 1A8
 	};
 	static_assert(sizeof(EffectSetting) == 0x1B0);
 
@@ -1237,12 +1226,12 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kLTEX };
 
 		// members
-		BGSTextureSet* textureSet;                 // 20
-		TEXTURE_HAVOK_DATA havokData;              // 28
-		BGSMaterialType* materialType;             // 30
-		std::int8_t specularExponent;              // 38
-		std::int32_t shaderTextureIndex;           // 3C
-		BSSimpleList<TESGrass*> textureGrassList;  // 40
+		BGSTextureSet*          textureSet;          // 20
+		TEXTURE_HAVOK_DATA      havokData;           // 28
+		BGSMaterialType*        materialType;        // 30
+		std::int8_t             specularExponent;    // 38
+		std::int32_t            shaderTextureIndex;  // 3C
+		BSSimpleList<TESGrass*> textureGrassList;    // 40
 	};
 	static_assert(sizeof(TESLandTexture) == 0x50);
 
@@ -1272,8 +1261,8 @@ namespace RE
 		{
 		public:
 			// members
-			MagicItem* spell;  // 00
-			float threshold;   // 08
+			MagicItem* spell;      // 00
+			float      threshold;  // 08
 		};
 		static_assert(sizeof(SpellData) == 0x10);
 
@@ -1281,8 +1270,8 @@ namespace RE
 		{
 		public:
 			// members
-			BGSSoundDescriptorForm* soundForm;               // 00
-			stl::enumeration<SoundType, std::int32_t> type;  // 08
+			BGSSoundDescriptorForm*               soundForm;  // 00
+			REX::EnumSet<SoundType, std::int32_t> type;       // 08
 		};
 		static_assert(sizeof(WeatherSound) == 0x10);
 
@@ -1294,30 +1283,30 @@ namespace RE
 		static_assert(sizeof(WeatherSoundList) == 0x10);
 
 		// members
-		stl::enumeration<SpellContext, std::int32_t> context;                     // 020
-		TESTexture1024 cloudTexture[32];                                          // 028
-		std::int8_t cloudLayerSpeedY[32];                                         // 228
-		std::int8_t cloudLayerSpeedX[32];                                         // 248
-		std::uint32_t cloudColorData[32][8];                                      // 268
-		float cloudAlpha[32][8];                                                  // 668
-		std::uint32_t cloudLayerDisabledBits;                                     // A68
-		std::int8_t weatherData[20];                                              // A6C
-		float fogData[18];                                                        // A80
-		std::uint32_t colorData[19][8];                                           // AC8
-		float fogColorScales[4][8];                                               // D28
-		SpellData weatherSpellData[2];                                            // DA8
-		WeatherSoundList soundList;                                               // DC8
-		BSTArray<TESObjectSTAT*> skyStatics;                                      // DD8
-		std::uint32_t numCloudLayers;                                             // DF0
-		TESImageSpace* imageSpace[8];                                             // DF8
-		BGSGodRays* godRays[8];                                                   // E38
-		BGSDirectionalAmbientLightingColors directionalAmbientLightingColors[8];  // E78
-		TESModel aurora;                                                          // F78
-		BGSLensFlare* sunGlareLensFlare;                                          // FA8
-		float volatilityMult;                                                     // FB0
-		float visibilityMult;                                                     // FB4
-		BGSShaderParticleGeometryData* precipitationData;                         // FB8
-		BGSReferenceEffect* referenceEffect;                                      // FC0
+		REX::EnumSet<SpellContext, std::int32_t> context;                              // 020
+		TESTexture1024                           cloudTexture[32];                     // 028
+		std::int8_t                              cloudLayerSpeedY[32];                 // 228
+		std::int8_t                              cloudLayerSpeedX[32];                 // 248
+		std::uint32_t                            cloudColorData[32][8];                // 268
+		float                                    cloudAlpha[32][8];                    // 668
+		std::uint32_t                            cloudLayerDisabledBits;               // A68
+		std::int8_t                              weatherData[20];                      // A6C
+		float                                    fogData[18];                          // A80
+		std::uint32_t                            colorData[19][8];                     // AC8
+		float                                    fogColorScales[4][8];                 // D28
+		SpellData                                weatherSpellData[2];                  // DA8
+		WeatherSoundList                         soundList;                            // DC8
+		BSTArray<TESObjectSTAT*>                 skyStatics;                           // DD8
+		std::uint32_t                            numCloudLayers;                       // DF0
+		TESImageSpace*                           imageSpace[8];                        // DF8
+		BGSGodRays*                              godRays[8];                           // E38
+		BGSDirectionalAmbientLightingColors      directionalAmbientLightingColors[8];  // E78
+		TESModel                                 aurora;                               // F78
+		BGSLensFlare*                            sunGlareLensFlare;                    // FA8
+		float                                    volatilityMult;                       // FB0
+		float                                    visibilityMult;                       // FB4
+		BGSShaderParticleGeometryData*           precipitationData;                    // FB8
+		BGSReferenceEffect*                      referenceEffect;                      // FC0
 	};
 	static_assert(sizeof(TESWeather) == 0xFC8);
 
@@ -1325,9 +1314,9 @@ namespace RE
 	{
 	public:
 		// members
-		TESWeather* weather;   // 00
-		std::uint32_t chance;  // 08
-		TESGlobal* chanceVar;  // 10
+		TESWeather*   weather;    // 00
+		std::uint32_t chance;     // 08
+		TESGlobal*    chanceVar;  // 10
 	};
 	static_assert(sizeof(WeatherEntry) == 0x18);
 
@@ -1347,10 +1336,10 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kCLMT };
 
 		// members
-		TESModel nightSky;           // 20
-		TESWeatherList weatherList;  // 50
-		TESTexture skyObjects[2];    // 60
-		std::int8_t data[6];         // 80
+		TESModel       nightSky;       // 20
+		TESWeatherList weatherList;    // 50
+		TESTexture     skyObjects[2];  // 60
+		std::int8_t    data[6];        // 80
 	};
 	static_assert(sizeof(TESClimate) == 0x88);
 
@@ -1363,9 +1352,9 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kSPGD };
 
 		// members
-		BSTArray<SETTING_VALUE> data;  // 20
-		TESTexture particleTexture;    // 38
-		BSFixedString materialName;    // 48
+		BSTArray<SETTING_VALUE> data;             // 20
+		TESTexture              particleTexture;  // 38
+		BSFixedString           materialName;     // 48
 	};
 	static_assert(sizeof(BGSShaderParticleGeometryData) == 0x50);
 
@@ -1377,13 +1366,21 @@ namespace RE
 		static constexpr auto VTABLE{ VTABLE::BGSReferenceEffect };
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kRFCT };
 
+		enum class Flag
+		{
+			kNone = 0,
+			kFaceTarget = 1 << 0,
+			kAttachToCamera = 1 << 1,
+			kInheritRotation = 1 << 2
+		};
+
 		struct Data
 		{
 		public:
 			// members
-			BGSArtObject* artObject;        // 00
-			TESEffectShader* effectShader;  // 08
-			std::uint32_t flags;            // 10
+			BGSArtObject*                     artObject;     // 00
+			TESEffectShader*                  effectShader;  // 08
+			REX::EnumSet<Flag, std::uint32_t> flags;         // 10
 		};
 		static_assert(sizeof(Data) == 0x18);
 
@@ -1404,13 +1401,13 @@ namespace RE
 		virtual bool Validate();  // 49
 
 		// members
-		TESRegionDataList* dataList;                    // 20
-		BSSimpleList<TESRegionPointList*>* pointLists;  // 28
-		TESWorldSpace* worldSpace;                      // 30
-		TESWeather* currentWeather;                     // 38
-		NiColor emittanceColor;                         // 40
-		float lodDistanceModifier;                      // 4C
-		float occlusionAccuracy;                        // 50
+		TESRegionDataList*                 dataList;             // 20
+		BSSimpleList<TESRegionPointList*>* pointLists;           // 28
+		TESWorldSpace*                     worldSpace;           // 30
+		TESWeather*                        currentWeather;       // 38
+		NiColor                            emittanceColor;       // 40
+		float                              lodDistanceModifier;  // 4C
+		float                              occlusionAccuracy;    // 50
 	};
 	static_assert(sizeof(TESRegion) == 0x58);
 
@@ -1421,47 +1418,47 @@ namespace RE
 		{
 		public:
 			// members
-			ObjectRefHandle handle;      // 0
-			std::int32_t numSkipFrames;  // 4
+			ObjectRefHandle handle;         // 0
+			std::int32_t    numSkipFrames;  // 4
 		};
 		static_assert(sizeof(AnimatedRefObject) == 0x8);
 
 		// members
-		BSTHashMap<ObjectRefHandle, TESForm*> emittanceSourceRefMap;                // 000
-		BSTHashMap<ObjectRefHandle, NiNode*> emittanceLightRefMap;                  // 030
-		BSTHashMap<ObjectRefHandle, NiPointer<BSMultiBoundNode>> multiboundRefMap;  // 060
-		BSTHashMap<BSMultiBoundNode*, ObjectRefHandle> refMultiboundMap;            // 090
-		BSTArray<NiPointer<NiNode>> preCombined;                                    // 0C0
-		BSTArray<NiPointer<NiNode>> attachedTransitionCells;                        // 0D8
-		BSTArray<AnimatedRefObject> animatedRefs;                                   // 0F0
-		BSTArray<ObjectRefHandle> flickeringLights;                                 // 108
-		BSTArray<ObjectRefHandle> movingRefs;                                       // 120
-		BSTArray<ObjectRefHandle> decalRefs;                                        // 138
-		BSTArray<ObjectRefHandle> skyActors;                                        // 150
-		BSTArray<ObjectRefHandle> flightAvoidAreas;                                 // 168
-		BSReadWriteLock waterLock;                                                  // 180
-		void* combinedGeometry;                                                     // 188 - TODO
-		NiPointer<QueuedFile> combinedGeometryTask;                                 // 190
-		BSSimpleList<ObjectRefHandle> activatingRefs;                               // 198
-		BSSimpleList<ObjectRefHandle> waterRefs;                                    // 1A8
-		NiPointer<BSPortalGraph> portalGraph;                                       // 1B8
-		NiPointer<NiNode> cell3D;                                                   // 1C0
-		NiPointer<NiNode> lightMarkerNode;                                          // 1C8
-		NiPointer<NiNode> soundMarkerNode;                                          // 1D0
-		NiPointer<NiNode> multiBoundNode;                                           // 1D8
-		NiPointer<NiNode> combinedObjects;                                          // 1E0
-		NiPointer<NiNode> combinedStaticCollision;                                  // 1E8
-		BGSEncounterZone* encounterZone;                                            // 1F0
-		std::size_t visibleDistantFadeInTime;                                       // 1F8
-		std::int32_t criticalQueuedRefCount;                                        // 200
-		std::int32_t queuedRefCount;                                                // 204
-		std::int32_t queuedDistantRefCount;                                         // 208
-		std::uint32_t refsAttachedDelay;                                            // 20C
-		BSTAtomicValue<std::uint32_t> combinedObjectsAttached;                      // 210
-		bool decalsQueued;                                                          // 214
-		bool refsFullyLoaded;                                                       // 215
-		bool combinedObjectsRegistered;                                             // 216
-		bool grassIsShown;                                                          // 217
+		BSTHashMap<ObjectRefHandle, TESForm*>                    emittanceSourceRefMap;      // 000
+		BSTHashMap<ObjectRefHandle, NiNode*>                     emittanceLightRefMap;       // 030
+		BSTHashMap<ObjectRefHandle, NiPointer<BSMultiBoundNode>> multiboundRefMap;           // 060
+		BSTHashMap<BSMultiBoundNode*, ObjectRefHandle>           refMultiboundMap;           // 090
+		BSTArray<NiPointer<NiNode>>                              preCombined;                // 0C0
+		BSTArray<NiPointer<NiNode>>                              attachedTransitionCells;    // 0D8
+		BSTArray<AnimatedRefObject>                              animatedRefs;               // 0F0
+		BSTArray<ObjectRefHandle>                                flickeringLights;           // 108
+		BSTArray<ObjectRefHandle>                                movingRefs;                 // 120
+		BSTArray<ObjectRefHandle>                                decalRefs;                  // 138
+		BSTArray<ObjectRefHandle>                                skyActors;                  // 150
+		BSTArray<ObjectRefHandle>                                flightAvoidAreas;           // 168
+		BSReadWriteLock                                          waterLock;                  // 180
+		void*                                                    combinedGeometry;           // 188 - TODO
+		NiPointer<QueuedFile>                                    combinedGeometryTask;       // 190
+		BSSimpleList<ObjectRefHandle>                            activatingRefs;             // 198
+		BSSimpleList<ObjectRefHandle>                            waterRefs;                  // 1A8
+		NiPointer<BSPortalGraph>                                 portalGraph;                // 1B8
+		NiPointer<NiNode>                                        cell3D;                     // 1C0
+		NiPointer<NiNode>                                        lightMarkerNode;            // 1C8
+		NiPointer<NiNode>                                        soundMarkerNode;            // 1D0
+		NiPointer<NiNode>                                        multiBoundNode;             // 1D8
+		NiPointer<NiNode>                                        combinedObjects;            // 1E0
+		NiPointer<NiNode>                                        combinedStaticCollision;    // 1E8
+		BGSEncounterZone*                                        encounterZone;              // 1F0
+		std::size_t                                              visibleDistantFadeInTime;   // 1F8
+		std::int32_t                                             criticalQueuedRefCount;     // 200
+		std::int32_t                                             queuedRefCount;             // 204
+		std::int32_t                                             queuedDistantRefCount;      // 208
+		std::uint32_t                                            refsAttachedDelay;          // 20C
+		BSTAtomicValue<std::uint32_t>                            combinedObjectsAttached;    // 210
+		bool                                                     decalsQueued;               // 214
+		bool                                                     refsFullyLoaded;            // 215
+		bool                                                     combinedObjectsRegistered;  // 216
+		bool                                                     grassIsShown;               // 217
 	};
 	static_assert(sizeof(LOADED_CELL_DATA) == 0x218);
 
@@ -1497,104 +1494,104 @@ namespace RE
 		[[nodiscard]] bhkWorld* GetbhkWorld() const
 		{
 			using func_t = decltype(&TESObjectCELL::GetbhkWorld);
-			REL::Relocation<func_t> func{ REL::ID(1326073, 2200260) };
+			static REL::Relocation<func_t> func{ REL::ID(1326073) };
 			return func(this);
 		}
 
 		[[nodiscard]] bool GetCantWaitHere()
 		{
 			using func_t = decltype(&TESObjectCELL::GetCantWaitHere);
-			REL::Relocation<func_t> func{ REL::ID(376940, 2200287) };
+			static REL::Relocation<func_t> func{ REL::ID(376940, 2200287) };
 			return func(this);
 		}
 
 		[[nodiscard]] std::int32_t GetDataX()
 		{
 			using func_t = decltype(&TESObjectCELL::GetDataX);
-			REL::Relocation<func_t> func{ REL::ID(445210, 2200213) };
+			static REL::Relocation<func_t> func{ REL::ID(445210, 2200213) };
 			return func(this);
 		}
 
 		[[nodiscard]] std::int32_t GetDataY()
 		{
 			using func_t = decltype(&TESObjectCELL::GetDataY);
-			REL::Relocation<func_t> func{ REL::ID(1322816, 2200214) };
+			static REL::Relocation<func_t> func{ REL::ID(1322816, 2200214) };
 			return func(this);
 		}
 
 		[[nodiscard]] BGSEncounterZone* GetEncounterZone() const
 		{
 			using func_t = decltype(&TESObjectCELL::GetEncounterZone);
-			REL::Relocation<func_t> func{ REL::ID(1414637, 2200242) };
+			static REL::Relocation<func_t> func{ REL::ID(1414637, 2200242) };
 			return func(this);
 		}
 
 		[[nodiscard]] BGSLocation* GetLocation() const
 		{
 			using func_t = decltype(&TESObjectCELL::GetLocation);
-			REL::Relocation<func_t> func{ REL::ID(868663, 2200179) };
+			static REL::Relocation<func_t> func{ REL::ID(868663, 2200179) };
 			return func(this);
 		}
 
 		[[nodiscard]] TESForm* GetOwner()
 		{
 			using func_t = decltype(&TESObjectCELL::GetOwner);
-			REL::Relocation<func_t> func{ REL::ID(910422, 2200236) };
+			static REL::Relocation<func_t> func{ REL::ID(910422) };
 			return func(this);
 		}
 
 		[[nodiscard]] TESRegionList* GetRegionList(bool a_createIfMissing)
 		{
 			using func_t = decltype(&TESObjectCELL::GetRegionList);
-			REL::Relocation<func_t> func{ REL::ID(1565031, 2200265) };
+			static REL::Relocation<func_t> func{ REL::ID(1565031, 2200265) };
 			return func(this, a_createIfMissing);
 		}
 
 		[[nodiscard]] NiAVObject* Pick(bhkPickData& pd)
 		{
 			using func_t = decltype(&TESObjectCELL::Pick);
-			REL::Relocation<func_t> func{ REL::ID(434717, 2200263) };
+			static REL::Relocation<func_t> func{ REL::ID(434717) };
 			return func(this, pd);
 		}
 
 		[[nodiscard]] TESWaterForm* GetWaterType() const noexcept;
-		[[nodiscard]] bool HasWater() const noexcept { return cellFlags.all(Flag::kHasWater); }
-		[[nodiscard]] bool IsExterior() const noexcept { return !IsInterior(); }
-		[[nodiscard]] bool IsInterior() const noexcept { return cellFlags.all(Flag::kInterior); }
+		[[nodiscard]] bool          HasWater() const noexcept { return cellFlags.all(Flag::kHasWater); }
+		[[nodiscard]] bool          IsExterior() const noexcept { return !IsInterior(); }
+		[[nodiscard]] bool          IsInterior() const noexcept { return cellFlags.all(Flag::kInterior); }
 
 		// members
-		BSSpinLock grassCreateLock;                            // 30
-		BSSpinLock grassTaskLock;                              // 38
-		stl::enumeration<Flag, std::uint16_t> cellFlags;       // 40
-		std::uint16_t cellGameFlags;                           // 42
-		stl::enumeration<CELL_STATE, std::uint8_t> cellState;  // 44
-		bool autoWaterLoaded;                                  // 45
-		bool cellDetached;                                     // 46
-		BSTSmartPointer<ExtraDataList> extraList;              // 48
+		BSSpinLock                             grassCreateLock;  // 30
+		BSSpinLock                             grassTaskLock;    // 38
+		REX::EnumSet<Flag, std::uint16_t>      cellFlags;        // 40
+		std::uint16_t                          cellGameFlags;    // 42
+		REX::EnumSet<CELL_STATE, std::uint8_t> cellState;        // 44
+		bool                                   autoWaterLoaded;  // 45
+		bool                                   cellDetached;     // 46
+		BSTSmartPointer<ExtraDataList>         extraList;        // 48
 		union
 		{
-			void* cellData;
+			void*          cellData;
 			EXTERIOR_DATA* cellDataExterior;
 			INTERIOR_DATA* cellDataInterior;
-		};                                                                            // 50
-		TESObjectLAND* cellLand;                                                      // 58
-		float waterHeight;                                                            // 60
-		NavMeshArray* navMeshes;                                                      // 68
-		BSTArray<NiPointer<TESObjectREFR>> references;                                // 70
-		BSTSmartPointer<BGSWaterCollisionManager::AutoWater> autoWater;               // 77
-		BSTSet<BSTSmartPointer<BGSWaterCollisionManager::BGSWaterUpdateI>> waterSet;  // 80
-		BSSpinLock spinLock;                                                          // C0
+		};                                                                               // 50
+		TESObjectLAND*                                                     cellLand;     // 58
+		float                                                              waterHeight;  // 60
+		NavMeshArray*                                                      navMeshes;    // 68
+		BSTArray<NiPointer<TESObjectREFR>>                                 references;   // 70
+		BSTSmartPointer<BGSWaterCollisionManager::AutoWater>               autoWater;    // 77
+		BSTSet<BSTSmartPointer<BGSWaterCollisionManager::BGSWaterUpdateI>> waterSet;     // 80
+		BSSpinLock                                                         spinLock;     // C0
 		union
 		{
 			TESWorldSpace* worldSpace;
-			std::uint32_t tempDataOffset;
-		};                                      // C8
-		LOADED_CELL_DATA* loadedData;           // D0
-		BGSLightingTemplate* lightingTemplate;  // D8
-		void* visibilityData;                   // E0 - TODO
-		std::uint32_t rootVisibilityCellID;     // E8
-		std::uint16_t visCalcDate;              // EC
-		std::uint16_t preCombineDate;           // F0
+			std::uint32_t  tempDataOffset;
+		};                                          // C8
+		LOADED_CELL_DATA*    loadedData;            // D0
+		BGSLightingTemplate* lightingTemplate;      // D8
+		void*                visibilityData;        // E0 - TODO
+		std::uint32_t        rootVisibilityCellID;  // E8
+		std::uint16_t        visCalcDate;           // EC
+		std::uint16_t        preCombineDate;        // F0
 	};
 	static_assert(sizeof(TESObjectCELL) == 0xF0);
 
@@ -1616,7 +1613,7 @@ namespace RE
 		};
 
 		// members
-		stl::enumeration<LAND, std::uint32_t> flags;  // 0
+		REX::EnumSet<LAND, std::uint32_t> flags;  // 0
 	};
 	static_assert(sizeof(OBJ_LAND) == 0x4);
 
@@ -1632,10 +1629,10 @@ namespace RE
 		struct LoadedLandData;
 
 		// members
-		OBJ_LAND data;                         // 28
-		TESObjectCELL* parentCell;             // 30
+		OBJ_LAND              data;            // 28
+		TESObjectCELL*        parentCell;      // 30
 		NiPointer<QueuedFile> queuedTextures;  // 38
-		LoadedLandData* loadedData;            // 40
+		LoadedLandData*       loadedData;      // 40
 	};
 	static_assert(sizeof(TESObjectLAND) == 0x48);
 
@@ -1643,8 +1640,8 @@ namespace RE
 	{
 	public:
 		// members
-		std::int8_t flags;      // 0
-		std::int8_t type;       // 1
+		std::int8_t   flags;    // 0
+		std::int8_t   type;     // 1
 		std::uint16_t subtype;  // 2
 	};
 	static_assert(sizeof(DIALOGUE_DATA) == 0x4);
@@ -1661,28 +1658,80 @@ namespace RE
 		struct InfoTree;
 
 		// members
-		DIALOGUE_DATA data;                     // 30
-		std::uint32_t priorityAndJournalIndex;  // 34
-		BGSDialogueBranch* ownerBranch;         // 38
-		TESQuest* ownerQuest;                   // 40
-		BGSKeyword* subtypeKeyword;             // 48
-		TESTopicInfo** topicInfos;              // 50
-		InfoTree* infoTree;                     // 58
-		std::uint32_t numTopicInfos;            // 60
-		std::uint32_t topicInfoAllocSize;       // 64
-		std::uint32_t firstFileOffset;          // 68
-		BSFixedString formEditorID;             // 70
+		DIALOGUE_DATA      data;                     // 30
+		std::uint32_t      priorityAndJournalIndex;  // 34
+		BGSDialogueBranch* ownerBranch;              // 38
+		TESQuest*          ownerQuest;               // 40
+		BGSKeyword*        subtypeKeyword;           // 48
+		TESTopicInfo**     topicInfos;               // 50
+		InfoTree*          infoTree;                 // 58
+		std::uint32_t      numTopicInfos;            // 60
+		std::uint32_t      topicInfoAllocSize;       // 64
+		std::uint32_t      firstFileOffset;          // 68
+		BSFixedString      formEditorID;             // 70
 	};
 	static_assert(sizeof(TESTopic) == 0x78);
 
 	struct TOPIC_INFO_DATA
 	{
 	public:
+		enum class TOPIC_INFO_FLAGS : std::uint32_t
+		{
+			kNone = 0,
+			kStartSceneOnEnd = 0x1,
+			kRandom = 0x2,
+			kSayOnce = 0x4,
+			kRequirePlayerActivation = 0x8,
+			kInfoRefusal = 0x10,
+			kRandomEnd = 0x20,
+			kEndRunningScene = 0x40,
+			kIsForceGreet = 0x80,
+			kPlaredAddress = 0x100,
+			kGroupTracksData = 0x100,
+			kForceSubtitle = 0x200,
+			kGroupForceRandom = 0x200,
+			kCanMoveWhileGreeitng = 0x400,
+			kNoLIPFile = 0x800,
+			kGroupDontDoAll = 0x800,
+			kPostProcess = 0x1000,
+			kCustomSoundOutpt = 0x2000,
+			kDialogueInfoSaid = 0x4000,
+			kHasCapsData = 0x4000,
+			kAlreadySaidDoAllBeforeRepeating = 0x8000,
+			kEditorOnly = 0x4000,
+		};
+
 		// members
-		std::uint16_t flags;           // 0
-		std::uint16_t timeUntilReset;  // 2
+		REX::EnumSet<TOPIC_INFO_FLAGS, std::uint16_t> flags;           // 0
+		std::uint16_t                                 timeUntilReset;  // 2
 	};
 	static_assert(sizeof(TOPIC_INFO_DATA) == 0x4);
+
+	struct TESResponse
+	{
+	public:
+		struct RespData
+		{
+			std::uint16_t percent;
+			std::uint8_t  responseID;
+			bool          useEmotion;
+		};
+		static_assert(sizeof(RespData) == 0x4);
+
+		const char* GetResponseText()
+		{
+			using func_t = decltype(&TESResponse::GetResponseText);
+			static REL::Relocation<func_t> func{ REL::ID(0, 2208288) };
+			return func(this);
+		}
+
+		// Members
+		BGSLocalizedString                                    responseText;
+		TESResponse*                                          pNext;
+		TESResponse::RespData                                 data;
+		BGSTypedKeywordValue<KeywordType::kAnimFaceArchetype> faceArcheType;
+	};
+	static_assert(sizeof(TESResponse) == 0x18);
 
 	class ResponseListWrapper
 	{
@@ -1700,16 +1749,64 @@ namespace RE
 		static constexpr auto VTABLE{ VTABLE::TESTopicInfo };
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kINFO };
 
+		enum Flags
+		{
+			kInfoGroup = (1 << 6),
+		};
+
+		enum CHARISMA_CHALLENGE_DIFFICULTY : std::uint32_t
+		{
+			CC_CHALLENGE_NONE = 0x0,
+			CC_CHALLENGE_EASY = 0x1,
+			CC_CHALLENGE_MEDIUM = 0x2,
+			CC_CHALLENGE_HARD = 0x3,
+			CC_CHALLENGE_ALWAYS_SUCCEEDS = 0x4,
+			CC_CHALLENGE_EASY_REPEATABLE = 0x5,
+			CC_CHALLENGE_MEDIUM_REPEATABLE = 0x6,
+			CC_CHALLENGE_HARD_REPEATABLE = 0x7,
+			CC_CHALLENGE_COUNT = 0x8,
+		};
+
+		enum CHARISMA_CHALLENGE_SUCCESS : std::uint32_t
+		{
+			CC_SUCCESS_NONE = 0xFFFFFFFF,
+			CC_SUCCESS_FAIL = 0x0,
+			CC_SUCCESS_SUCCEED = 0x1,
+			CC_SUCCESS_COUNT = 0x2,
+		};
+
+		// Returns nullptr if no parent.
+		TESTopicInfo* GetParentInfoGroup()
+		{
+			using func_t = decltype(&TESTopicInfo::GetParentInfoGroup);
+			static REL::Relocation<func_t> func{ REL::ID(163538, 2208435) };
+			return func(this);
+		}
+
+		CHARISMA_CHALLENGE_DIFFICULTY GetSpeechChallengeLevel()
+		{
+			using func_t = decltype(&TESTopicInfo::GetSpeechChallengeLevel);
+			static REL::Relocation<func_t> func{ REL::ID(0, 2208441) };
+			return func(this);
+		}
+
+		CHARISMA_CHALLENGE_SUCCESS GetSuccessLevel()
+		{
+			using func_t = decltype(&TESTopicInfo::GetSuccessLevel);
+			static REL::Relocation<func_t> func{ REL::ID(1023955, 2208444) };
+			return func(this);
+		}
+
 		// members
-		TESTopic* parentTopic;          // 20
-		TESGlobal* resetGlobal;         // 28
-		TESTopicInfo* dataInfo;         // 30
-		TESCondition objConditions;     // 38
-		std::uint16_t infoIndex;        // 40
-		std::int8_t subtitlePriority;   // 42
-		bool saidOnce;                  // 43
-		TOPIC_INFO_DATA data;           // 44
-		ResponseListWrapper responses;  // 48
+		TESTopic*           parentTopic;       // 20
+		TESGlobal*          resetGlobal;       // 28
+		TESTopicInfo*       dataInfo;          // 30
+		TESCondition        objConditions;     // 38
+		std::uint16_t       infoIndex;         // 40
+		std::int8_t         subtitlePriority;  // 42
+		bool                saidOnce;          // 43
+		TOPIC_INFO_DATA     data;              // 44
+		ResponseListWrapper responses;         // 48
 	};
 	static_assert(sizeof(TESTopicInfo) == 0x50);
 
@@ -1717,9 +1814,9 @@ namespace RE
 	{
 	public:
 		// members
-		std::int8_t loopMin;        // 0
-		std::int8_t loopMax;        // 1
-		std::int8_t flags;          // 2
+		std::int8_t   loopMin;      // 0
+		std::int8_t   loopMax;      // 1
+		std::int8_t   flags;        // 2
 		std::uint16_t replayDelay;  // 4
 	};
 	static_assert(sizeof(IDLE_DATA) == 0x6);
@@ -1733,15 +1830,15 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kIDLE };
 
 		// members
-		TESCondition conditions;          // 20
-		IDLE_DATA data;                   // 28
-		NiFormArray* childIdles;          // 30
-		TESIdleForm* parentIdle;          // 38
-		TESIdleForm* prevIdle;            // 40
-		BSFixedString behaviorGraphName;  // 48
-		BSFixedString animEventName;      // 50
-		BSFixedString animFileName;       // 58
-		BSStringT<char> formEditorID;     // 60
+		TESCondition    conditions;         // 20
+		IDLE_DATA       data;               // 28
+		NiFormArray*    childIdles;         // 30
+		TESIdleForm*    parentIdle;         // 38
+		TESIdleForm*    prevIdle;           // 40
+		BSFixedString   behaviorGraphName;  // 48
+		BSFixedString   animEventName;      // 50
+		BSFixedString   animFileName;       // 58
+		BSStringT<char> formEditorID;       // 60
 	};
 	static_assert(sizeof(TESIdleForm) == 0x70);
 
@@ -1756,8 +1853,8 @@ namespace RE
 		struct LoadNIFData;
 
 		// members
-		TESCondition conditions;         // 20
-		LoadNIFData* loadNIFData;        // 28
+		TESCondition       conditions;   // 20
+		LoadNIFData*       loadNIFData;  // 28
 		BGSLocalizedString loadingText;  // 30
 	};
 	static_assert(sizeof(TESLoadScreen) == 0x38);
@@ -1781,42 +1878,42 @@ namespace RE
 	{
 	public:
 		// members
-		stl::enumeration<_D3DBLEND, std::int32_t> textureBlendModeSource;   // 00
-		stl::enumeration<_D3DBLENDOP, std::int32_t> textureBlendOperation;  // 04
-		stl::enumeration<_D3DCMPFUNC, std::int32_t> textureZTestFunction;   // 08
-		std::uint32_t fillColor1;                                           // 0C
-		float fillAlphaFadeInTime;                                          // 10
-		float fillAlphaFullTime;                                            // 14
-		float fillAlphaFadeOutTime;                                         // 18
-		float fillAlphaPersistentPercent;                                   // 1C
-		float fillAlphaPulseAmplitude;                                      // 20
-		float fillAlphaPulseFrequency;                                      // 24
-		float fillTextureUAnimSpeed;                                        // 28
-		float fillTextureVAnimSpeed;                                        // 2C
-		float edgeExponentValue;                                            // 30
-		std::uint32_t edgeColor;                                            // 34
-		float edgeAlphaFadeInTime;                                          // 38
-		float edgeAlphaFullTime;                                            // 3C
-		float edgeAlphaFadeOutTime;                                         // 40
-		float edgeAlphaPersistentPercent;                                   // 44
-		float edgeAlphaPulseAmplitude;                                      // 48
-		float edgeAlphaPulseFrequency;                                      // 4C
-		float fillAlphaFullPercent;                                         // 50
-		float edgeAlphaFullPercent;                                         // 54
-		stl::enumeration<_D3DBLEND, std::int32_t> textureBlendModeDest;     // 58
-		float alphaTestStartTime;                                           // 5C
-		float alphaTestEndTime;                                             // 60
-		float alphaTestStartValue;                                          // 64
-		float alphaTestEndValue;                                            // 68
-		BGSSoundDescriptorForm* ambientSound;                               // 70
-		std::uint32_t fillColor2;                                           // 78
-		std::uint32_t fillColor3;                                           // 7C
-		float fillColorScaleA[3];                                           // 80
-		float fillColorTimeA[3];                                            // 8C
-		std::uint32_t flags;                                                // 98
-		float fillTextureUScale;                                            // 9C
-		float fillTextureVScale;                                            // A0
-		std::int8_t boneDepth;                                              // A4
+		REX::EnumSet<_D3DBLEND, std::int32_t>   textureBlendModeSource;      // 00
+		REX::EnumSet<_D3DBLENDOP, std::int32_t> textureBlendOperation;       // 04
+		REX::EnumSet<_D3DCMPFUNC, std::int32_t> textureZTestFunction;        // 08
+		std::uint32_t                           fillColor1;                  // 0C
+		float                                   fillAlphaFadeInTime;         // 10
+		float                                   fillAlphaFullTime;           // 14
+		float                                   fillAlphaFadeOutTime;        // 18
+		float                                   fillAlphaPersistentPercent;  // 1C
+		float                                   fillAlphaPulseAmplitude;     // 20
+		float                                   fillAlphaPulseFrequency;     // 24
+		float                                   fillTextureUAnimSpeed;       // 28
+		float                                   fillTextureVAnimSpeed;       // 2C
+		float                                   edgeExponentValue;           // 30
+		std::uint32_t                           edgeColor;                   // 34
+		float                                   edgeAlphaFadeInTime;         // 38
+		float                                   edgeAlphaFullTime;           // 3C
+		float                                   edgeAlphaFadeOutTime;        // 40
+		float                                   edgeAlphaPersistentPercent;  // 44
+		float                                   edgeAlphaPulseAmplitude;     // 48
+		float                                   edgeAlphaPulseFrequency;     // 4C
+		float                                   fillAlphaFullPercent;        // 50
+		float                                   edgeAlphaFullPercent;        // 54
+		REX::EnumSet<_D3DBLEND, std::int32_t>   textureBlendModeDest;        // 58
+		float                                   alphaTestStartTime;          // 5C
+		float                                   alphaTestEndTime;            // 60
+		float                                   alphaTestStartValue;         // 64
+		float                                   alphaTestEndValue;           // 68
+		BGSSoundDescriptorForm*                 ambientSound;                // 70
+		std::uint32_t                           fillColor2;                  // 78
+		std::uint32_t                           fillColor3;                  // 7C
+		float                                   fillColorScaleA[3];          // 80
+		float                                   fillColorTimeA[3];           // 8C
+		std::uint32_t                           flags;                       // 98
+		float                                   fillTextureUScale;           // 9C
+		float                                   fillTextureVScale;           // A0
+		std::int8_t                             boneDepth;                   // A4
 	};
 	static_assert(sizeof(EffectShaderData) == 0xA8);
 
@@ -1830,11 +1927,11 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kEFSH };
 
 		// members
-		EffectShaderData data;                    // 050
-		TESTexture textureShaderTexture;          // 0F8
-		TESTexture blockOutTexture;               // 108
-		TESTexture paletteTexture;                // 118
-		NiPointer<BSGeometry> shareableGeometry;  // 128
+		EffectShaderData      data;                  // 050
+		TESTexture            textureShaderTexture;  // 0F8
+		TESTexture            blockOutTexture;       // 108
+		TESTexture            paletteTexture;        // 118
+		NiPointer<BSGeometry> shareableGeometry;     // 128
 	};
 	static_assert(sizeof(TESEffectShader) == 0x130);
 
@@ -1852,17 +1949,6 @@ namespace RE
 	};
 	static_assert(sizeof(BGSDebris) == 0x38);
 
-	struct ImageSpaceBaseData
-	{
-	public:
-		// members
-		float hdrData[9];        // 00
-		float cinematicData[3];  // 24
-		float tintData[4];       // 30
-		float dofData[6];        // 40
-	};
-	static_assert(sizeof(ImageSpaceBaseData) == 0x58);
-
 	class __declspec(novtable) TESImageSpace :
 		public TESForm  // 00
 	{
@@ -1872,8 +1958,8 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kIMGS };
 
 		// members
-		ImageSpaceBaseData data;            // 20
-		TESTexture lutTexture;              // 78
+		ImageSpaceBaseData   data;          // 20
+		TESTexture           lutTexture;    // 78
 		NiPointer<NiTexture> niLutTexture;  // 88
 	};
 	static_assert(sizeof(TESImageSpace) == 0x90);
@@ -1890,8 +1976,8 @@ namespace RE
 		{
 		public:
 			// members
-			bool animatable;                                    // 00
-			float duration;                                     // 04
+			bool          animatable;                           // 00
+			float         duration;                             // 04
 			std::uint32_t keySize[21][2];                       // 08
 			std::uint32_t tintColorKeySize;                     // B0
 			std::uint32_t blurKeySize;                          // B4
@@ -1899,13 +1985,13 @@ namespace RE
 			std::uint32_t radialBlurStrengthKeySize;            // BC
 			std::uint32_t radialBlurRampupKeySize;              // C0
 			std::uint32_t radialBlurStartKeySize;               // C4
-			bool useTargetForRadialBlur;                        // C8
-			NiPoint2 radialBlurCenter;                          // CC
+			bool          useTargetForRadialBlur;               // C8
+			NiPoint2      radialBlurCenter;                     // CC
 			std::uint32_t depthOfFieldStrengthKeySize;          // D4
 			std::uint32_t depthOfFieldDistanceKeySize;          // D8
 			std::uint32_t depthOfFieldRangeKeySize;             // DC
-			bool useTargetForDepthOfField;                      // E0
-			std::int8_t depthOfFieldMode;                       // E1
+			bool          useTargetForDepthOfField;             // E0
+			std::int8_t   depthOfFieldMode;                     // E1
 			std::uint32_t radialBlurRampDownKeySize;            // E4
 			std::uint32_t radialBlurDownStartKeySize;           // E8
 			std::uint32_t fadeColorKeySize;                     // EC
@@ -1916,7 +2002,7 @@ namespace RE
 		static_assert(sizeof(ImageSpaceModifierData) == 0xFC);
 
 		// members
-		ImageSpaceModifierData data;                                              // 020
+		ImageSpaceModifierData         data;                                      // 020
 		NiPointer<NiFloatInterpolator> interpolator[21][2];                       // 120
 		NiPointer<NiFloatInterpolator> blurInterpolator;                          // 270
 		NiPointer<NiFloatInterpolator> doubleInterpolator;                        // 278
@@ -1933,7 +2019,7 @@ namespace RE
 		NiPointer<NiFloatInterpolator> depthOfFieldVignetteRadiusInterpolator;    // 2D0
 		NiPointer<NiFloatInterpolator> depthOfFieldVignetteStrengthInterpolator;  // 2D8
 		NiPointer<NiFloatInterpolator> motionBlurStrengthInterpolator;            // 2E0
-		BSStringT<char> formEditorID;                                             // 2E8
+		BSStringT<char>                formEditorID;                              // 2E8
 	};
 	static_assert(sizeof(TESImageSpaceModifier) == 0x2F8);
 
@@ -1948,13 +2034,32 @@ namespace RE
 		void AddScriptAddedForm(TESForm* a_form)
 		{
 			using func_t = decltype(&BGSListForm::AddScriptAddedForm);
-			REL::Relocation<func_t> func{ REL::ID(1064874, 2203262) };
+			static REL::Relocation<func_t> func{ REL::ID(1064874) };
 			return func(this, a_form);
 		}
 
-		[[nodiscard]] bool ContainsItem(const TESForm* a_form) const noexcept
+		[[nodiscard]] bool ContainsItem(const TESForm* a_form)
 		{
-			return a_form && GetItemIndex(*a_form).has_value();
+			using func_t = decltype(&BGSListForm::ContainsItem);
+			static REL::Relocation<func_t> func{ REL::ID(688500) };
+			return func(this, a_form);
+		}
+
+		void ForEachForm(std::function<BSContainer::ForEachResult(TESForm*)> a_callback) const
+		{
+			for (const auto& form : arrayOfForms) {
+				if (form && a_callback(form) == BSContainer::ForEachResult::kStop) {
+					return;
+				}
+			}
+			if (scriptAddedTempForms) {
+				for (const auto& addedFormID : *scriptAddedTempForms) {
+					const auto addedForm = TESForm::GetFormByID(addedFormID);
+					if (addedForm && a_callback(addedForm) == BSContainer::ForEachResult::kStop) {
+						return;
+					}
+				}
+			}
 		}
 
 		[[nodiscard]] std::optional<std::uint32_t> GetItemIndex(const TESForm& a_item) const noexcept
@@ -1982,9 +2087,9 @@ namespace RE
 		}
 
 		// members
-		BSTArray<TESForm*> arrayOfForms;                // 20
+		BSTArray<TESForm*>       arrayOfForms;          // 20
 		BSTArray<std::uint32_t>* scriptAddedTempForms;  // 38
-		std::uint32_t scriptAddedFormCount;             // 40
+		std::uint32_t            scriptAddedFormCount;  // 40
 	};
 	static_assert(sizeof(BGSListForm) == 0x48);
 
@@ -1992,11 +2097,11 @@ namespace RE
 	{
 	public:
 		// members
-		bool trait;            // 0
+		bool        trait;     // 0
 		std::int8_t level;     // 1
 		std::int8_t numRanks;  // 2
-		bool playable;         // 3
-		bool hidden;           // 4
+		bool        playable;  // 3
+		bool        hidden;    // 4
 	};
 	static_assert(sizeof(PerkData) == 0x5);
 
@@ -2012,34 +2117,72 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kPERK };
 
 		// members
-		PerkData data;                        // 58
-		TESCondition perkConditions;          // 60
-		BSTArray<BGSPerkEntry*> perkEntries;  // 68
-		BGSPerk* nextPerk;                    // 80
-		BGSSoundDescriptorForm* sound;        // 88
-		BSFixedStringCS swfFile;              // 90
+		PerkData                data;            // 58
+		TESCondition            perkConditions;  // 60
+		BSTArray<BGSPerkEntry*> perkEntries;     // 68
+		BGSPerk*                nextPerk;        // 80
+		BGSSoundDescriptorForm* sound;           // 88
+		BSFixedStringCS         swfFile;         // 90
 	};
 	static_assert(sizeof(BGSPerk) == 0x98);
 
-	class __declspec(novtable) BGSBodyPart
+	struct PART_DATA
 	{
 	public:
-		BSFixedString PartNode;               //00
-		BSFixedString VATSTarget;             //08
-		BSFixedString TwistVariation;         //10
-		BSFixedString HitReactionStart;       //18
-		BSFixedString HitReactionEnd;         //20
-		BSFixedString TwistVariationX;        //28
-		BSFixedString TwistVariationY;        //30
-		BSFixedString TwistVariationZ;        //38
-		BSFixedString unk40;                  //40
-		BSFixedString GoreEffectsTargetBone;  //48
-		void* TESModelVTable;                 //50
-		BSFixedString LimbReplacementModel;   //58
-		void* TextureFileHashes;              //60
-		void* MaterialRelated;                //68
-		uint64_t unk70;                       //70
+		// members
+		float             damageMult;                    // 00
+		BGSDebris*        explosionGenericDebris;        // 08
+		BGSExplosion*     explosion;                     // 10
+		float             explosionGenericDebrisScale;   // 18
+		BGSDebris*        dismemberGenericDebris;        // 20
+		BGSExplosion*     dismemberExplosion;            // 28
+		float             dismemberGenericDebrisScale;   // 30
+		BGSDebris*        onCrippleGenericDebris;        // 38
+		BGSExplosion*     onCrippleExplosion;            // 40
+		float             onCrippleGenericDebrisScale;   // 48
+		NiPoint3          goreTranslate;                 // 4C
+		NiPoint3          goreRotate;                    // 58
+		BGSImpactDataSet* dismemberImpactDataSet;        // 68
+		BGSImpactDataSet* explosionImpactDataSet;        // 70
+		BGSImpactDataSet* onCrippleImpactDataSet;        // 78
+		ActorValueInfo*   actorValue;                    // 80
+		BGSArtObject*     artObject;                     // 88
+		float             explosionSpecialDebrisScale;   // 90
+		std::uint8_t      flags;                         // 94
+		std::uint8_t      type;                          // 95
+		std::uint8_t      healthPercent;                 // 96
+		std::uint8_t      toHitChance;                   // 97
+		std::uint8_t      explosionChance;               // 98
+		std::uint8_t      nonLethalDismembermentChance;  // 99
+		std::uint8_t      dismemberGenericDebrisCount;   // 9A
+		std::uint8_t      onCrippleGenericDebrisCount;   // 9B
+		std::uint8_t      explosionGenericDebrisCount;   // 9C
+		std::uint8_t      dismemberDecalCount;           // 9D
+		std::uint8_t      onCrippleDecalCount;           // 9E
+		std::uint8_t      explosionDecalCount;           // 9F
+		std::uint8_t      geometrySegmentIndex;          // A0
 	};
+	static_assert(sizeof(PART_DATA) == 0xA8);
+
+	class BGSBodyPart
+	{
+	public:
+		// members
+		BSFixedString                    nodeName;                      // 000
+		BSFixedString                    targetName;                    // 008
+		BSFixedString                    hitReactionVariablePrefix;     // 010
+		BGSBodyPartDefs::HitReactionData runtimeHitReactionData;        // 018
+		BGSLocalizedString               partName;                      // 040
+		BSFixedString                    goreObjectName;                // 048
+		TESModel                         explosionSpecialDebris;        // 050
+		PART_DATA                        data;                          // 080
+		BGSArtObject*                    dismemberBlood;                // 128
+		BGSMaterialType*                 bloodImpactMaterial;           // 130
+		BGSMaterialType*                 onCrippleBloodImpactMaterial;  // 138
+		BGSTextureSet*                   meatCapTextureSet;             // 140
+		BGSTextureSet*                   meatCollarTextureSet;          // 148
+	};
+	static_assert(sizeof(BGSBodyPart) == 0x150);
 
 	class __declspec(novtable) BGSBodyPartData :
 		public TESForm,        // 000
@@ -2082,7 +2225,7 @@ namespace RE
 		};
 
 		// members
-		BGSBodyPart* partArray[26];                               // 058
+		BGSBodyPart*                     partArray[26];           // 058
 		BGSBodyPartDefs::HitReactionData defaultHitReactionData;  // 128
 	};
 	static_assert(sizeof(BGSBodyPartData) == 0x150);
@@ -2104,28 +2247,28 @@ namespace RE
 		{
 		public:
 			// members
-			stl::enumeration<CAM_ACTION, std::int32_t> cameraAction;  // 00
-			stl::enumeration<CAM_OBJECT, std::int32_t> location;      // 04
-			stl::enumeration<CAM_OBJECT, std::int32_t> target;        // 08
-			std::uint32_t flags;                                      // 0C
-			float playerTimeMult;                                     // 10
-			float targetTimeMult;                                     // 14
-			float globalTimeMult;                                     // 18
-			float maxTime;                                            // 1C
-			float minTime;                                            // 20
-			float targetPercentBetweenActors;                         // 24
-			float nearTargetDistance;                                 // 28
-			float locationSpring;                                     // 2C
-			float targetSpring;                                       // 30
-			float rotationOffsetX;                                    // 34
-			float rotationOffsetY;                                    // 38
-			float rotationOffsetZ;                                    // 3C
+			REX::EnumSet<CAM_ACTION, std::int32_t> cameraAction;                // 00
+			REX::EnumSet<CAM_OBJECT, std::int32_t> location;                    // 04
+			REX::EnumSet<CAM_OBJECT, std::int32_t> target;                      // 08
+			std::uint32_t                          flags;                       // 0C
+			float                                  playerTimeMult;              // 10
+			float                                  targetTimeMult;              // 14
+			float                                  globalTimeMult;              // 18
+			float                                  maxTime;                     // 1C
+			float                                  minTime;                     // 20
+			float                                  targetPercentBetweenActors;  // 24
+			float                                  nearTargetDistance;          // 28
+			float                                  locationSpring;              // 2C
+			float                                  targetSpring;                // 30
+			float                                  rotationOffsetX;             // 34
+			float                                  rotationOffsetY;             // 38
+			float                                  rotationOffsetZ;             // 3C
 		};
 		static_assert(sizeof(CAMERA_SHOT_DATA) == 0x40);
 
 		// members
-		CAMERA_SHOT_DATA data;    // 60
-		TESCondition conditions;  // A0
+		CAMERA_SHOT_DATA data;        // 60
+		TESCondition     conditions;  // A0
 	};
 	static_assert(sizeof(BGSCameraShot) == 0xA8);
 
@@ -2146,12 +2289,12 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kCPTH };
 
 		// members
-		TESCondition conditions;             // 20
-		BSSimpleList<BGSCameraShot*> shots;  // 28
-		PATH_DATA data;                      // 38
-		NiFormArray* childPaths;             // 40
-		BGSCameraPath* parentPath;           // 48
-		BGSCameraPath* prevPath;             // 50
+		TESCondition                 conditions;  // 20
+		BSSimpleList<BGSCameraShot*> shots;       // 28
+		PATH_DATA                    data;        // 38
+		NiFormArray*                 childPaths;  // 40
+		BGSCameraPath*               parentPath;  // 48
+		BGSCameraPath*               prevPath;    // 50
 	};
 	static_assert(sizeof(BGSCameraPath) == 0x58);
 
@@ -2185,22 +2328,15 @@ namespace RE
 		static constexpr auto VTABLE{ VTABLE::BGSMaterialType };
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kMATT };
 
-		[[nodiscard]] static BGSMaterialType* GetMaterialFromID(std::uint32_t a_materialID)
-		{
-			using func_t = BGSMaterialType*(std::uint32_t);
-			static REL::Relocation<func_t> func{ REL::ID(542530, 2203310) };
-			return func(a_materialID);
-		}
-
 		// members
-		TESModel breakableFXModel;             // 20
-		BGSMaterialType* parentType;           // 50
+		TESModel          breakableFXModel;    // 20
+		BGSMaterialType*  parentType;          // 50
 		BGSImpactDataSet* havokImpactDataSet;  // 58
-		BSFixedString materialName;            // 60
-		std::uint32_t materialID;              // 68
-		NiColor materialColor;                 // 6C
-		float buoyancy;                        // 78
-		std::uint32_t flags;                   // 7C
+		BSFixedString     materialName;        // 60
+		std::uint32_t     materialID;          // 68
+		NiColor           materialColor;       // 6C
+		float             buoyancy;            // 78
+		std::uint32_t     flags;               // 7C
 	};
 	static_assert(sizeof(BGSMaterialType) == 0x80);
 
@@ -2208,16 +2344,16 @@ namespace RE
 	{
 	public:
 		// members
-		float decalMinWidth;         // 00
-		float decalMaxWidth;         // 04
-		float decalMinHeight;        // 08
-		float decalMaxHeight;        // 0C
-		float depth;                 // 10
-		float shininess;             // 14
-		float parallaxScale;         // 18
-		std::int8_t parallaxPasses;  // 1C
-		std::int8_t flags;           // 1D
-		std::uint32_t color;         // 20
+		float         decalMinWidth;   // 00
+		float         decalMaxWidth;   // 04
+		float         decalMinHeight;  // 08
+		float         decalMaxHeight;  // 0C
+		float         depth;           // 10
+		float         shininess;       // 14
+		float         parallaxScale;   // 18
+		std::int8_t   parallaxPasses;  // 1C
+		std::int8_t   flags;           // 1D
+		std::uint32_t color;           // 20
 	};
 	static_assert(sizeof(DECAL_DATA_DATA) == 0x24);
 
@@ -2244,26 +2380,26 @@ namespace RE
 		{
 		public:
 			// members
-			float effectDuration;                                    // 00
-			stl::enumeration<ORIENTATION, std::int32_t> orient;      // 04
-			float angleThreshold;                                    // 08
-			float placementRadius;                                   // 0C
-			stl::enumeration<SOUND_LEVEL, std::int32_t> soundLevel;  // 10
-			std::int8_t flags;                                       // 14
-			std::int8_t resultOverride;                              // 15
+			float                                   effectDuration;   // 00
+			REX::EnumSet<ORIENTATION, std::int32_t> orient;           // 04
+			float                                   angleThreshold;   // 08
+			float                                   placementRadius;  // 0C
+			REX::EnumSet<SOUND_LEVEL, std::int32_t> soundLevel;       // 10
+			std::int8_t                             flags;            // 14
+			std::int8_t                             resultOverride;   // 15
 		};
 		static_assert(sizeof(IMPACT_DATA_DATA) == 0x18);
 
 		// members
-		IMPACT_DATA_DATA data;            // 50
-		BGSTextureSet* decalTextureSet;   // 68
-		BGSTextureSet* decalTextureSet2;  // 70
-		BGSSoundDescriptorForm* sound1;   // 78
-		BGSSoundDescriptorForm* sound2;   // 80
-		BGSExplosion* explosion;          // 88
-		BGSHazard* hazard;                // 90
-		DecalData decalData;              // 98
-		float maxFootstepParticleDist;    // BC
+		IMPACT_DATA_DATA        data;                     // 50
+		BGSTextureSet*          decalTextureSet;          // 68
+		BGSTextureSet*          decalTextureSet2;         // 70
+		BGSSoundDescriptorForm* sound1;                   // 78
+		BGSSoundDescriptorForm* sound2;                   // 80
+		BGSExplosion*           explosion;                // 88
+		BGSHazard*              hazard;                   // 90
+		DecalData               decalData;                // 98
+		float                   maxFootstepParticleDist;  // BC
 	};
 	static_assert(sizeof(BGSImpactData) == 0xC0);
 
@@ -2304,12 +2440,12 @@ namespace RE
 		};
 
 		// members
-		TESForm* zoneOwner;                          // 00
-		BGSLocation* location;                       // 08
-		std::int8_t ownerRank;                       // 10
-		std::int8_t minLevel;                        // 11
-		stl::enumeration<FLAG, std::uint8_t> flags;  // 12
-		std::int8_t maxLevel;                        // 13
+		TESForm*                         zoneOwner;  // 00
+		BGSLocation*                     location;   // 08
+		std::int8_t                      ownerRank;  // 10
+		std::int8_t                      minLevel;   // 11
+		REX::EnumSet<FLAG, std::uint8_t> flags;      // 12
+		std::int8_t                      maxLevel;   // 13
 	};
 	static_assert(sizeof(ENCOUNTER_ZONE_DATA) == 0x18);
 
@@ -2331,7 +2467,7 @@ namespace RE
 		}
 
 		// members
-		ENCOUNTER_ZONE_DATA data;           // 20
+		ENCOUNTER_ZONE_DATA      data;      // 20
 		ENCOUNTER_ZONE_GAME_DATA gameData;  // 38
 	};
 	static_assert(sizeof(BGSEncounterZone) == 0x48);
@@ -2350,8 +2486,8 @@ namespace RE
 	{
 	public:
 		// members
-		BGSLocationRefType* type;  // 00
-		UnloadedRefData refData;   // 08
+		BGSLocationRefType* type;     // 00
+		UnloadedRefData     refData;  // 08
 	};
 	static_assert(sizeof(SpecialRefData) == 0x18);
 
@@ -2359,9 +2495,9 @@ namespace RE
 	{
 	public:
 		// members
-		TESNPC* npc;             // 00
-		std::uint32_t refID;     // 08
-		BGSLocation* editorLoc;  // 10
+		TESNPC*       npc;        // 00
+		std::uint32_t refID;      // 08
+		BGSLocation*  editorLoc;  // 10
 	};
 	static_assert(sizeof(UniqueNPCData) == 0x18);
 
@@ -2380,7 +2516,7 @@ namespace RE
 		public:
 			// members
 			BGSKeyword* keyword;  // 00
-			float data;           // 08
+			float       data;     // 08
 		};
 		static_assert(sizeof(KEYWORD_DATA) == 0x10);
 
@@ -2388,29 +2524,29 @@ namespace RE
 		bool IsParent(const BGSLocation* a_possibleParent) const;
 
 		// members
-		BGSLocation* parentLoc;                                                 // 050
-		TESFaction* unreportedCrimeFaction;                                     // 058
-		BGSMusicType* musicType;                                                // 060
-		BGSEncounterZone* zone;                                                 // 068
-		ObjectRefHandle worldLocMarker;                                         // 070
-		float worldLocRadius;                                                   // 074
-		float actorFadeMult;                                                    // 078
-		ObjectRefHandle horseLocMarker;                                         // 07C
-		BSTArray<SpecialRefData> specialRefs;                                   // 080
-		BSTArray<UniqueNPCData> uniqueNPCs;                                     // 098
-		OverrideData* overrideData;                                             // 0B0
-		BSTArray<std::uint32_t> newUnloadedRefs;                                // 0B8
-		BSTArray<BSTTuple<BGSLocationRefType*, std::uint32_t>> newSpecialRefs;  // 0D0
-		NiPointer<QueuedPromoteLocationReferencesTask> promoteRefsTask;         // 0E8
-		BSTArray<ObjectRefHandle> promotedRefsArray;                            // 0F0
-		volatile std::int32_t loadedCount;                                      // 108
-		std::uint32_t fileOffset;                                               // 10C
-		BSTArray<KEYWORD_DATA> keywordData;                                     // 110
-		BSSpinLock locLoadedLock;                                               // 128
-		std::uint32_t lastChecked;                                              // 130
-		bool cleared;                                                           // 134
-		bool everCleared;                                                       // 135
-		BSReadWriteLock locker;                                                 // 138
+		BGSLocation*                                           parentLoc;               // 050
+		TESFaction*                                            unreportedCrimeFaction;  // 058
+		BGSMusicType*                                          musicType;               // 060
+		BGSEncounterZone*                                      zone;                    // 068
+		ObjectRefHandle                                        worldLocMarker;          // 070
+		float                                                  worldLocRadius;          // 074
+		float                                                  actorFadeMult;           // 078
+		ObjectRefHandle                                        horseLocMarker;          // 07C
+		BSTArray<SpecialRefData>                               specialRefs;             // 080
+		BSTArray<UniqueNPCData>                                uniqueNPCs;              // 098
+		OverrideData*                                          overrideData;            // 0B0
+		BSTArray<std::uint32_t>                                newUnloadedRefs;         // 0B8
+		BSTArray<BSTTuple<BGSLocationRefType*, std::uint32_t>> newSpecialRefs;          // 0D0
+		NiPointer<QueuedPromoteLocationReferencesTask>         promoteRefsTask;         // 0E8
+		BSTArray<ObjectRefHandle>                              promotedRefsArray;       // 0F0
+		volatile std::int32_t                                  loadedCount;             // 108
+		std::uint32_t                                          fileOffset;              // 10C
+		BSTArray<KEYWORD_DATA>                                 keywordData;             // 110
+		BSSpinLock                                             locLoadedLock;           // 128
+		std::uint32_t                                          lastChecked;             // 130
+		bool                                                   cleared;                 // 134
+		bool                                                   everCleared;             // 135
+		BSReadWriteLock                                        locker;                  // 138
 	};
 	static_assert(sizeof(BGSLocation) == 0x140);
 
@@ -2418,8 +2554,8 @@ namespace RE
 	{
 	public:
 		// members
-		BGSLocalizedString text;  // 00
-		TESCondition conditions;  // 08
+		BGSLocalizedString text;        // 00
+		TESCondition       conditions;  // 08
 	};
 	static_assert(sizeof(MESSAGEBOX_BUTTON) == 0x10);
 
@@ -2436,25 +2572,25 @@ namespace RE
 		void AddButton(MESSAGEBOX_BUTTON* btn)
 		{
 			using func_t = decltype(&BGSMessage::AddButton);
-			REL::Relocation<func_t> func{ REL::ID(236744, 2203350) };
+			static REL::Relocation<func_t> func{ REL::ID(236744) };
 			return func(this, btn);
 		}
 
 		std::uint32_t GetConvertedDescription(BSFixedString& a_result)
 		{
 			using func_t = decltype(&BGSMessage::GetConvertedDescription);
-			REL::Relocation<func_t> func{ REL::ID(8331, 2203353) };
+			static REL::Relocation<func_t> func{ REL::ID(8331) };
 			return func(this, a_result);
 		}
 
 		// members
-		BGSMenuIcon* icon;                            // 48
-		TESQuest* ownerQuest;                         // 50
-		BSSimpleList<MESSAGEBOX_BUTTON*> buttonList;  // 58
-		BSFixedStringCS swfFile;                      // 68
-		BGSLocalizedString shortName;                 // 70
-		std::uint32_t flags;                          // 78
-		std::uint32_t displayTime;                    // 7C
+		BGSMenuIcon*                     icon;         // 48
+		TESQuest*                        ownerQuest;   // 50
+		BSSimpleList<MESSAGEBOX_BUTTON*> buttonList;   // 58
+		BSFixedStringCS                  swfFile;      // 68
+		BGSLocalizedString               shortName;    // 70
+		std::uint32_t                    flags;        // 78
+		std::uint32_t                    displayTime;  // 7C
 	};
 	static_assert(sizeof(BGSMessage) == 0x80);
 
@@ -2467,8 +2603,8 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kLGTM };
 
 		// members
-		INTERIOR_DATA data;                                                    // 20
-		BGSGodRays* godRays;                                                   // B0
+		INTERIOR_DATA                       data;                              // 20
+		BGSGodRays*                         godRays;                           // B0
 		BGSDirectionalAmbientLightingColors directionalAmbientLightingColors;  // B8
 	};
 	static_assert(sizeof(BGSLightingTemplate) == 0xD8);
@@ -2496,7 +2632,7 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kFSTP };
 
 		// members
-		BSFixedString tagString;      // 20
+		BSFixedString     tagString;  // 20
 		BGSImpactDataSet* impactSet;  // 28
 	};
 	static_assert(sizeof(BGSFootstep) == 0x30);
@@ -2514,6 +2650,150 @@ namespace RE
 	};
 	static_assert(sizeof(BGSFootstepSet) == 0x98);
 
+	enum class DIALOGUE_TYPE
+	{
+		kPlayerDialogue = 0x0,
+		kCommandDialogue = 0x1,
+		kSceneDialogue = 0x2,
+		kCombat = 0x3,
+		kFavors = 0x4,
+		kDetection = 0x5,
+		kService = 0x6,
+		kMiscellaneous = 0x7,
+	};
+
+	enum class DIALOGUE_SUBTYPE
+	{
+		kPlayerDialogue_Custom = 0x0,
+		kPlayerDialogue_Force_Greet = 0x1,
+		kPlayerDialogue_Player_Rumor = 0x2,
+		kPlayerDialogue_End = 0x3,
+		kCommandDialogue_Custom = 0x3,
+		kCommandDialogue_Call = 0x4,
+		kCommandDialogue_Follow = 0x5,
+		kCommandDialogue_Move = 0x6,
+		kCommandDialogue_Attack = 0x7,
+		kCommandDialogue_Inspect = 0x8,
+		kCommandDialogue_Retrieve = 0x9,
+		kCommandDialogue_Stay = 0xA,
+		kCommandDialogue_Release = 0xB,
+		kCommandDialogue_ShowRelationships = 0xC,
+		kCommandDialogue_Reject = 0xD,
+		kCommandDialogue_Heal = 0xE,
+		kCommandDialogue_Assign = 0xF,
+		kCommandDialogue_Enter = 0x10,
+		kSceneDialogue_Custom = 0x11,
+		kFavor_Show = 0x12,
+		kFavor_Agree = 0x13,
+		kFavor_Refuse = 0x14,
+		kFavor_Exit_State = 0x15,
+		kFavor_Morality_Refuse = 0x16,
+		kFavor_Trade = 0x17,
+		kFavor_Pathing_Reject = 0x18,
+		kCombat_Attack = 0x19,
+		kCombat_Power_Attack = 0x1A,
+		kCombat_Bash = 0x1B,
+		kCombat_Hit = 0x1C,
+		kCombat_Flee = 0x1D,
+		kCombat_Bleed_Out = 0x1E,
+		kCombat_Avoid_Threat = 0x1F,
+		kCombat_Death = 0x20,
+		kCombat_Block = 0x21,
+		kCombat_Taunt = 0x22,
+		kCombat_Throw_Grenade = 0x23,
+		kCombat_Ally_Killed = 0x24,
+		kCombat_Order_Fallback = 0x25,
+		kCombat_Order_Advance = 0x26,
+		kCombat_Order_Flank = 0x27,
+		kCombat_Order_Take_Cover = 0x28,
+		kCombat_Fallback = 0x29,
+		kCombat_Request_Support = 0x2A,
+		kCombat_Provide_Support = 0x2B,
+		kCombat_Crippled_Limb = 0x2C,
+		kCombat_Paired_Attack = 0x2D,
+		kCombat_Steal = 0x2E,
+		kCombat_Yield = 0x2F,
+		kCombat_Accept_Yield = 0x30,
+		kCombat_Pickpocket = 0x31,
+		kCombat_Assault = 0x32,
+		kCombat_Murder = 0x33,
+		kCombat_Assault_NC = 0x34,
+		kCombat_Murder_NC = 0x35,
+		kCombat_Pickpocket_NC = 0x36,
+		kCombat_Steal_NC = 0x37,
+		kCombat_Trespass_NC = 0x38,
+		kCombat_Guard_Trespass = 0x39,
+		kCombat_Unused = 0x3A,
+		kCombat_Voice_Power_Start = 0x3B,
+		kCombat_Voice_Power_Start_Short = 0x3B,
+		kCombat_Voice_Power_Start_Long = 0x3C,
+		kCombat_Voice_Power_End_Short = 0x3D,
+		kCombat_Voice_Power_End_Long = 0x3E,
+		kCombat_Voice_Power_End = 0x3E,
+		kDetection_Alert_Idle = 0x3F,
+		kDetection_Lost_Idle = 0x40,
+		kDetection_Normal_To_Alert = 0x41,
+		kDetection_Normal_To_Combat = 0x42,
+		kDetection_Normal_To_Lost = 0x43,
+		kDetection_Alert_To_Normal = 0x44,
+		kDetection_Alert_To_Combat = 0x45,
+		kDetection_Combat_To_Normal = 0x46,
+		kDetection_Combat_To_Lost = 0x47,
+		kDetection_Lost_To_Normal = 0x48,
+		kDetection_Lost_To_Combat = 0x49,
+		kDetection_Detect_Friend_Die = 0x4A,
+		kService_Refusal = 0x4B,
+		kService_Repair = 0x4C,
+		kService_Travel = 0x4D,
+		kService_Training = 0x4E,
+		kService_Barter_Exit = 0x4F,
+		kService_Repair_Exit = 0x50,
+		kService_Recharge = 0x51,
+		kService_Recharge_Exit = 0x52,
+		kService_Training_Exit = 0x53,
+		kMisc_Observe_Combat = 0x54,
+		kMisc_Corpse = 0x55,
+		kMisc_Time_To_Go = 0x56,
+		kMisc_Goodbye = 0x57,
+		kMisc_Hello = 0x58,
+		kMisc_Player_Action_Swing_Melee_Weapon = 0x59,
+		kMisc_Player_Action_Shoot_Bow = 0x5A,
+		kMisc_Player_Action_Z_Key_Object = 0x5B,
+		kMisc_Player_Action_Jumping = 0x5C,
+		kMisc_Player_Action_Knocking_Over_Objects = 0x5D,
+		kMisc_Player_Action_Destroy_Object = 0x5E,
+		kMisc_Player_Action_Stand_On_Furniture = 0x5F,
+		kMisc_Player_Action_Locked_Object = 0x60,
+		kMisc_Player_Action_Pickpocket = 0x61,
+		kMisc_Pursue_Idle = 0x62,
+		kMisc_InfoData = 0x63,
+		kMisc_SceneChoice = 0x64,
+		kMisc_Player_Action_Cast_Projectile_Spell = 0x65,
+		kMisc_Player_Action_Cast_Self_Spell = 0x66,
+		kMisc_Player_Action_Shout = 0x67,
+		kMisc_Idle = 0x68,
+		kMisc_Breath_Sprint_Sound = 0x69,
+		kMisc_Breath_Enter_Bow_Zoom_Sound = 0x6A,
+		kMisc_Breath_Exit_Bow_Zoom_Sound = 0x6B,
+		kMisc_Actor_Collide_With_Actor = 0x6C,
+		kMisc_Player_Iron_Sights = 0x6D,
+		kMisc_Out_Off_Breath_Sound = 0x6E,
+		kMisc_Combat_Grunt = 0x6F,
+		kMisc_Breath_Leave_Water = 0x70,
+		kMisc_Impatient_Positive = 0x71,
+		kMisc_Impatient_Negative = 0x72,
+		kMisc_Impatient_Neutral = 0x73,
+		kMisc_Impatient_Question = 0x74,
+		kMisc_Waiting_Player_Input = 0x75,
+		kMisc_Greeting = 0x76,
+		kMisc_Player_Activate_Door = 0x77,
+		kMisc_Player_Activate_Terminals = 0x78,
+		kMisc_Player_Activate_Furniture = 0x79,
+		kMisc_Player_Activate_Activators = 0x7A,
+		kMisc_Player_Activate_Container = 0x7B,
+		kMisc_Player_Aquire_Featured_Item = 0x7C,
+	};
+
 	class __declspec(novtable) BGSDialogueBranch :
 		public TESForm  // 00
 	{
@@ -2523,10 +2803,10 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kDLBR };
 
 		// members
-		std::uint32_t flags;                                 // 20
-		TESQuest* quest;                                     // 28
-		TESTopic* startingTopic;                             // 30
-		stl::enumeration<DIALOGUE_TYPE, std::int32_t> type;  // 38
+		std::uint32_t                             flags;          // 20
+		TESQuest*                                 quest;          // 28
+		TESTopic*                                 startingTopic;  // 30
+		REX::EnumSet<DIALOGUE_TYPE, std::int32_t> type;           // 38
 	};
 	static_assert(sizeof(BGSDialogueBranch) == 0x40);
 
@@ -2574,9 +2854,9 @@ namespace RE
 		{
 		public:
 			// members
-			TESWordOfPower* word;  // 00
-			SpellItem* spell;      // 08
-			float recoveryTime;    // 10
+			TESWordOfPower* word;          // 00
+			SpellItem*      spell;         // 08
+			float           recoveryTime;  // 10
 		};
 		static_assert(sizeof(Variation) == 0x18);
 
@@ -2594,9 +2874,9 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kEQUP };
 
 		// members
-		BSTArray<BGSEquipSlot*> parentSlots;  // 20
-		std::uint32_t flags;                  // 38
-		ActorValueInfo* conditionActorValue;  // 40
+		BSTArray<BGSEquipSlot*> parentSlots;          // 20
+		std::uint32_t           flags;                // 38
+		ActorValueInfo*         conditionActorValue;  // 40
 	};
 	static_assert(sizeof(BGSEquipSlot) == 0x48);
 
@@ -2609,10 +2889,10 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kRELA };
 
 		// members
-		TESNPC* npc1;                   // 20
-		TESNPC* npc2;                   // 28
-		BGSAssociationType* assocType;  // 30
-		std::uint32_t packedData;       // 38
+		TESNPC*             npc1;        // 20
+		TESNPC*             npc2;        // 28
+		BGSAssociationType* assocType;   // 30
+		std::uint32_t       packedData;  // 38
 	};
 	static_assert(sizeof(BGSRelationship) == 0x40);
 
@@ -2620,12 +2900,12 @@ namespace RE
 	{
 	public:
 		// members
-		TESCondition startConditions;       // 00
-		TESCondition completionConditions;  // 08
-		std::uint16_t phaseFlags;           // 10
-		bool active;                        // 12
-		bool scriptEndRun;                  // 13
-		bool runEnd;                        // 14
+		TESCondition  startConditions;       // 00
+		TESCondition  completionConditions;  // 08
+		std::uint16_t phaseFlags;            // 10
+		bool          active;                // 12
+		bool          scriptEndRun;          // 13
+		bool          runEnd;                // 14
 	};
 	static_assert(sizeof(BGSScenePhase) == 0x18);
 
@@ -2639,23 +2919,23 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kSCEN };
 
 		// members
-		NiTFlags<std::uint32_t, BGSScene> niFlags;      // 28
-		BSTArray<BGSScenePhase*> phases;                // 30
-		BSTArray<std::uint32_t> actors;                 // 48
-		BSTArray<std::uint32_t> actorFlags;             // 60
-		BSTArray<std::uint32_t> actorProgressionFlags;  // 78
-		BSTArray<BGSSceneAction*> actions;              // 90
-		TESQuest* parentQuest;                          // A8
-		BGSScene* templateScene;                        // B0
-		std::uint32_t flags;                            // B8
-		TESCondition repeatConditions;                  // C0
-		std::uint32_t speakerID;                        // C8
-		std::uint32_t currentActivePhase;               // CC
-		std::uint32_t startPhase;                       // D0
-		float randomSceneTimer;                         // D4
-		float maxREFDistanceCenter;                     // D8
-		ObjectRefHandle targetRef;                      // DC
-		bool shouldNotRotateToTrack;                    // E0
+		NiTFlags<std::uint32_t, BGSScene> niFlags;                 // 28
+		BSTArray<BGSScenePhase*>          phases;                  // 30
+		BSTArray<std::uint32_t>           actors;                  // 48
+		BSTArray<std::uint32_t>           actorFlags;              // 60
+		BSTArray<std::uint32_t>           actorProgressionFlags;   // 78
+		BSTArray<BGSSceneAction*>         actions;                 // 90
+		TESQuest*                         parentQuest;             // A8
+		BGSScene*                         templateScene;           // B0
+		std::uint32_t                     flags;                   // B8
+		TESCondition                      repeatConditions;        // C0
+		std::uint32_t                     speakerID;               // C8
+		std::uint32_t                     currentActivePhase;      // CC
+		std::uint32_t                     startPhase;              // D0
+		float                             randomSceneTimer;        // D4
+		float                             maxREFDistanceCenter;    // D8
+		ObjectRefHandle                   targetRef;               // DC
+		bool                              shouldNotRotateToTrack;  // E0
 	};
 	static_assert(sizeof(BGSScene) == 0xE8);
 
@@ -2669,7 +2949,7 @@ namespace RE
 
 		// members
 		BSFixedStringCS associationLabel[2][2];  // 20
-		std::uint32_t flags;                     // 40
+		std::uint32_t   flags;                   // 40
 	};
 	static_assert(sizeof(BGSAssociationType) == 0x48);
 
@@ -2700,7 +2980,7 @@ namespace RE
 		{
 		public:
 			// members
-			std::int8_t* nuffer;       // 00
+			std::int8_t*  nuffer;      // 00
 			std::uint32_t bufferSize;  // 08
 		};
 		static_assert(sizeof(FILE_DATA) == 0x10);
@@ -2748,19 +3028,19 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kSNCT };
 
 		// members
-		BGSSoundCategory* parentCategory;  // 38
-		BGSSoundCategory* sliderCategory;  // 40
-		float volumeMult;                  // 48
-		float snapshotMult;                // 4C
-		float currCompressionMult;         // 50
-		float fullyCompressedMult;         // 54
-		float frequencyMult;               // 58
-		float minFrequencyMult;            // 5C
-		std::uint32_t appFlags;            // 60
-		std::uint16_t attenuation[6];      // 64
-		std::uint16_t stateFlags;          // 70
-		std::uint16_t staticMult;          // 72
-		std::uint16_t defaultMenuValue;    // 74
+		BGSSoundCategory* parentCategory;       // 38
+		BGSSoundCategory* sliderCategory;       // 40
+		float             volumeMult;           // 48
+		float             snapshotMult;         // 4C
+		float             currCompressionMult;  // 50
+		float             fullyCompressedMult;  // 54
+		float             frequencyMult;        // 58
+		float             minFrequencyMult;     // 5C
+		std::uint32_t     appFlags;             // 60
+		std::uint16_t     attenuation[6];       // 64
+		std::uint16_t     stateFlags;           // 70
+		std::uint16_t     staticMult;           // 72
+		std::uint16_t     defaultMenuValue;     // 74
 	};
 	static_assert(sizeof(BGSSoundCategory) == 0x78);
 
@@ -2779,12 +3059,12 @@ namespace RE
 		struct SpeakerArrays;
 
 		// members
-		DynamicAttenuationCharacteristics* attenuation;            // 28
-		SpeakerArrays* speakerOutputArrays;                        // 30
-		BGSAudioEffectChain* effectChain;                          // 38
-		std::uint32_t flags;                                       // 40
-		stl::enumeration<SPEAKER_OUTPUT_MODE, std::int32_t> mode;  // 44
-		std::uint16_t staticAttenuation;                           // 48
+		DynamicAttenuationCharacteristics*              attenuation;          // 28
+		SpeakerArrays*                                  speakerOutputArrays;  // 30
+		BGSAudioEffectChain*                            effectChain;          // 38
+		std::uint32_t                                   flags;                // 40
+		REX::EnumSet<SPEAKER_OUTPUT_MODE, std::int32_t> mode;                 // 44
+		std::uint16_t                                   staticAttenuation;    // 48
 	};
 	static_assert(sizeof(BGSSoundOutput) == 0x50);
 
@@ -2798,10 +3078,10 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kCOLL };
 
 		// members
-		std::uint32_t collisionIdx;                 // 38
-		std::uint32_t debugColor;                   // 3C
-		std::uint32_t flags;                        // 40
-		BSFixedString name;                         // 48
+		std::uint32_t                collisionIdx;  // 38
+		std::uint32_t                debugColor;    // 3C
+		std::uint32_t                flags;         // 40
+		BSFixedString                name;          // 48
 		BSTArray<BGSCollisionLayer*> collidesWith;  // 50
 	};
 	static_assert(sizeof(BGSCollisionLayer) == 0x68);
@@ -2819,10 +3099,10 @@ namespace RE
 		union
 		{
 			std::uint32_t color;
-			float remappingIndex;
-		};                        // 30
-		TESCondition conditions;  // 38
-		std::uint32_t flags;      // 40
+			float         remappingIndex;
+		};                         // 30
+		TESCondition  conditions;  // 38
+		std::uint32_t flags;       // 40
 	};
 	static_assert(sizeof(BGSColorForm) == 0x48);
 
@@ -2839,22 +3119,22 @@ namespace RE
 		{
 		public:
 			// members
-			std::uint16_t decayTime;      // 0
-			std::uint16_t hfReference;    // 2
-			std::int8_t roomFilter;       // 4
-			std::int8_t roomHFFilter;     // 5
-			std::int8_t reflections;      // 6
-			std::int8_t reverb;           // 7
-			std::int8_t decayHFRatio;     // 8
-			std::int8_t reflectionDelay;  // 9
-			std::int8_t reverbDelay;      // A
-			std::int8_t diffusionPct;     // B
-			std::int8_t densityPct;       // C
+			std::uint16_t decayTime;        // 0
+			std::uint16_t hfReference;      // 2
+			std::int8_t   roomFilter;       // 4
+			std::int8_t   roomHFFilter;     // 5
+			std::int8_t   reflections;      // 6
+			std::int8_t   reverb;           // 7
+			std::int8_t   decayHFRatio;     // 8
+			std::int8_t   reflectionDelay;  // 9
+			std::int8_t   reverbDelay;      // A
+			std::int8_t   diffusionPct;     // B
+			std::int8_t   densityPct;       // C
 		};
 		static_assert(sizeof(ReverbParams) == 0xE);
 
 		// members
-		ReverbParams data;          // 28
+		ReverbParams  data;         // 28
 		std::uint32_t reverbClass;  // 38
 	};
 	static_assert(sizeof(BGSReverbParameters) == 0x40);
@@ -2881,22 +3161,22 @@ namespace RE
 		{
 		public:
 			// members
-			float aimModelMinConeDegrees;                 // 00
-			float aimModelMaxConeDegrees;                 // 04
-			float aimModelConeIncreasePerShot;            // 08
-			float aimModelConeDecreasePerSec;             // 0C
-			std::uint32_t aimModelConeDecreaseDelayMs;    // 10
-			float aimModelConeSneakMultiplier;            // 14
-			float aimModelRecoilDiminishSpringForce;      // 18
-			float aimModelRecoilDiminishSightsMult;       // 1C
-			float aimModelRecoilMaxDegPerShot;            // 20
-			float aimModelRecoilMinDegPerShot;            // 24
-			float aimModelRecoilHipMult;                  // 28
-			std::uint32_t aimModelRecoilShotsForRunaway;  // 2C
-			float aimModelRecoilArcDeg;                   // 30
-			float aimModelRecoilArcRotateDeg;             // 34
-			float aimModelConeIronSightsMultiplier;       // 38
-			float aimModelBaseStability;                  // 3C
+			float         aimModelMinConeDegrees;             // 00
+			float         aimModelMaxConeDegrees;             // 04
+			float         aimModelConeIncreasePerShot;        // 08
+			float         aimModelConeDecreasePerSec;         // 0C
+			std::uint32_t aimModelConeDecreaseDelayMs;        // 10
+			float         aimModelConeSneakMultiplier;        // 14
+			float         aimModelRecoilDiminishSpringForce;  // 18
+			float         aimModelRecoilDiminishSightsMult;   // 1C
+			float         aimModelRecoilMaxDegPerShot;        // 20
+			float         aimModelRecoilMinDegPerShot;        // 24
+			float         aimModelRecoilHipMult;              // 28
+			std::uint32_t aimModelRecoilShotsForRunaway;      // 2C
+			float         aimModelRecoilArcDeg;               // 30
+			float         aimModelRecoilArcRotateDeg;         // 34
+			float         aimModelConeIronSightsMultiplier;   // 38
+			float         aimModelBaseStability;              // 3C
 		};
 		static_assert(sizeof(Data) == 0x40);
 
@@ -2924,16 +3204,16 @@ namespace RE
 		};
 		static_assert(sizeof(ConstructibleObjectData) == 0x4);
 
-		[[nodiscard]] RE::TESForm* GetCreatedItem() const noexcept { return createdItem; }
+		[[nodiscard]] TESForm*      GetCreatedItem() const noexcept { return createdItem; }
 		[[nodiscard]] std::uint16_t GetWorkshopPriority() const noexcept { return data.workshopPriority; }
 
 		// members
-		BSTArray<BSTTuple<TESForm*, BGSTypedFormValuePair::SharedVal>>* requiredItems;  // 50
-		TESCondition conditions;                                                        // 58
-		TESForm* createdItem;                                                           // 60
-		BGSKeyword* benchKeyword;                                                       // 68
-		BGSConstructibleObject::ConstructibleObjectData data;                           // 70
-		BGSTypedKeywordValueArray<KeywordType::kRecipeFilter> filterKeywords;           // 78
+		BSTArray<BSTTuple<TESForm*, BGSTypedFormValuePair::SharedVal>>* requiredItems;   // 50
+		TESCondition                                                    conditions;      // 58
+		TESForm*                                                        createdItem;     // 60
+		BGSKeyword*                                                     benchKeyword;    // 68
+		BGSConstructibleObject::ConstructibleObjectData                 data;            // 70
+		BGSTypedKeywordValueArray<KeywordType::kRecipeFilter>           filterKeywords;  // 78
 	};
 	static_assert(sizeof(BGSConstructibleObject) == 0x88);
 
@@ -2949,8 +3229,8 @@ namespace RE
 		{
 		public:
 			// members
-			BSFixedString swapMaterial;  // 00
-			float colorRemappingIndex;   // 08
+			BSFixedString swapMaterial;         // 00
+			float         colorRemappingIndex;  // 08
 		};
 		static_assert(sizeof(Entry) == 0x10);
 
@@ -2971,16 +3251,16 @@ namespace RE
 		{
 		public:
 			// members
-			float fovMult;              // 00
-			std::uint32_t overlay;      // 04
-			std::uint32_t isModFormID;  // 08
-			NiPoint3 cameraOffset;      // 0C
+			float         fovMult;       // 00
+			std::uint32_t overlay;       // 04
+			std::uint32_t isModFormID;   // 08
+			NiPoint3      cameraOffset;  // 0C
 		};
 		static_assert(sizeof(Data) == 0x18);
 
 		// members
-		Data zoomData;                 // 20
-		TESImageSpaceModifier* isMod;  // 38
+		Data                   zoomData;  // 20
+		TESImageSpaceModifier* isMod;     // 38
 	};
 	static_assert(sizeof(BGSZoomData) == 0x40);
 
@@ -2996,13 +3276,13 @@ namespace RE
 		{
 		public:
 			// members
-			BGSLocalizedString text;               // 00
-			BGSKeywordForm keywords;               // 08
-			float compareVal;                      // 28
-			std::int8_t propertyBridgeArrayIndex;  // 2C
-			std::int8_t operatorType;              // 2D
-			std::uint16_t index;                   // 2E
-			bool revert;                           // 30
+			BGSLocalizedString text;                      // 00
+			BGSKeywordForm     keywords;                  // 08
+			float              compareVal;                // 28
+			std::int8_t        propertyBridgeArrayIndex;  // 2C
+			std::int8_t        operatorType;              // 2D
+			std::uint16_t      index;                     // 2E
+			bool               revert;                    // 30
 		};
 		static_assert(sizeof(RuleData) == 0x38);
 
@@ -3010,28 +3290,13 @@ namespace RE
 			public BSTArray<RuleData>  // 00
 		{
 		public:
-			[[nodiscard]] std::uint64_t InsertNewData(std::uint16_t a_index)
-			{
-				using func_t = std::uint64_t (RuleSet::*)(std::uint16_t);
-				REL::Relocation<func_t> func{ REL::ID(948437, 2197036) };
-				return func(this, a_index);
-			}
 		};
 		static_assert(sizeof(RuleSet) == 0x18);
 
-		void MergeWith(const BGSInstanceNamingRules& a_src)
-		{
-			using func_t = void (BGSInstanceNamingRules::*)(const BGSInstanceNamingRules&);
-			REL::Relocation<func_t> func{ REL::ID(855182, 2197037) };
-			func(this, a_src);
-		}
-
-
-		//948437
 		// members
-		stl::enumeration<ENUM_FORM_ID, std::int32_t> type;     // 020
-		RuleSet ruleSets[10];                                  // 028
-		BSTArray<const BGSInstanceNamingRules*> mergeSources;  // 118
+		REX::EnumSet<ENUM_FORM_ID, std::int32_t> type;          // 020
+		RuleSet                                  ruleSets[10];  // 028
+		BSTArray<const BGSInstanceNamingRules*>  mergeSources;  // 118
 	};
 	static_assert(sizeof(BGSInstanceNamingRules) == 0x130);
 
@@ -3044,12 +3309,12 @@ namespace RE
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kKSSM };
 
 		// members
-		BSTSet<BGSKeyword*> keywordSet;                                    // 20
-		BSTHashMap<std::uint32_t, BGSSoundDescriptorForm*> reverbDescMap;  // 50
-		BGSSoundDescriptorForm* descriptor;                                // 80
-		BGSSoundDescriptorForm* exteriorTail;                              // 88
-		BGSSoundDescriptorForm* vatsDescriptor;                            // 90
-		float vatsDescThreshold;                                           // 98
+		BSTSet<BGSKeyword*>                                keywordSet;         // 20
+		BSTHashMap<std::uint32_t, BGSSoundDescriptorForm*> reverbDescMap;      // 50
+		BGSSoundDescriptorForm*                            descriptor;         // 80
+		BGSSoundDescriptorForm*                            exteriorTail;       // 88
+		BGSSoundDescriptorForm*                            vatsDescriptor;     // 90
+		float                                              vatsDescThreshold;  // 98
 	};
 	static_assert(sizeof(BGSSoundKeywordMapping) == 0xA0);
 
@@ -3079,17 +3344,17 @@ namespace RE
 		{
 		public:
 			// members
-			float radius;       // 00
-			float minDelay;     // 04
-			float maxDelay;     // 08
-			bool requiresLOS;   // 0C
-			bool combatTarget;  // 0D
+			float radius;        // 00
+			float minDelay;      // 04
+			float maxDelay;      // 08
+			bool  requiresLOS;   // 0C
+			bool  combatTarget;  // 0D
 		};
 		static_assert(sizeof(ATTRACTION_RULE_DATA) == 0x10);
 
 		// members
-		ATTRACTION_RULE_DATA data;   // 20
-		BSFixedString formEditorID;  // 30
+		ATTRACTION_RULE_DATA data;          // 20
+		BSFixedString        formEditorID;  // 30
 	};
 	static_assert(sizeof(BGSAttractionRule) == 0x38);
 
@@ -3103,7 +3368,7 @@ namespace RE
 
 		// members
 		BSTHashMap<BGSSoundCategory*, float> categoryMult;  // 20
-		std::int8_t priority;                               // 50
+		std::int8_t                          priority;      // 50
 	};
 	static_assert(sizeof(BGSSoundCategorySnapshot) == 0x58);
 
@@ -3126,11 +3391,11 @@ namespace RE
 		static constexpr auto RTTI{ RTTI::BSLensFlareRenderData };
 
 		// members
-		float fadeDistRadiusScale;                                 // 00
-		float colorInfluence;                                      // 04
-		BSTArray<NiPointer<BSLensFlareSpriteRenderData>> sprites;  // 08
-		BSSpinLock lock;                                           // 20
-		std::uint32_t refCount;                                    // 28
+		float                                            fadeDistRadiusScale;  // 00
+		float                                            colorInfluence;       // 04
+		BSTArray<NiPointer<BSLensFlareSpriteRenderData>> sprites;              // 08
+		BSSpinLock                                       lock;                 // 20
+		std::uint32_t                                    refCount;             // 28
 	};
 	static_assert(sizeof(BSLensFlareRenderData) == 0x30);
 
@@ -3157,15 +3422,15 @@ namespace RE
 		{
 		public:
 			// members
-			NiColor colorAir;   // 00
-			NiColor colorBack;  // 0C
-			NiColor colorFwd;   // 18
-			float intensity;    // 24
-			float scatterAir;   // 28
-			float scatterBack;  // 2C
-			float scatterFwd;   // 30
-			float phaseBack;    // 34
-			float phaseFwd;     // 38
+			NiColor colorAir;     // 00
+			NiColor colorBack;    // 0C
+			NiColor colorFwd;     // 18
+			float   intensity;    // 24
+			float   scatterAir;   // 28
+			float   scatterBack;  // 2C
+			float   scatterFwd;   // 30
+			float   phaseBack;    // 34
+			float   phaseFwd;     // 38
 		};
 		static_assert(sizeof(GodRaysData) == 0x3C);
 
@@ -3174,3 +3439,47 @@ namespace RE
 	};
 	static_assert(sizeof(BGSGodRays) == 0x60);
 }
+
+namespace std
+{
+	[[nodiscard]] inline std::string to_string(RE::ENUM_FORM_ID a_formType)
+	{
+		return RE::TESForm::GetFormTypeString(a_formType);
+	}
+}
+
+#ifdef FMT_VERSION
+namespace fmt
+{
+	template <>
+	struct formatter<RE::ENUM_FORM_ID>
+	{
+		template <class ParseContext>
+		constexpr auto parse(ParseContext& a_ctx)
+		{
+			return a_ctx.begin();
+		}
+
+		template <class FormatContext>
+		auto format(const RE::ENUM_FORM_ID& a_formType, FormatContext& a_ctx)
+		{
+			return fmt::format_to(a_ctx.out(), "{}", RE::TESForm::GetFormTypeString(a_formType));
+		}
+	};
+}
+#endif
+
+#ifdef __cpp_lib_format
+namespace std
+{
+	template <class CharT>
+	struct formatter<RE::ENUM_FORM_ID, CharT> : std::formatter<std::string_view, CharT>
+	{
+		template <class FormatContext>
+		auto format(RE::ENUM_FORM_ID a_formType, FormatContext& a_ctx)
+		{
+			return formatter<std::string_view, CharT>::format(RE::TESForm::GetFormTypeString(a_formType), a_ctx);
+		}
+	};
+}
+#endif

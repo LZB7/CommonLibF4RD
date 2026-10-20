@@ -46,14 +46,14 @@ namespace RE
 			kLooksMenu,
 			kWorkshopAddendum,
 			kPauseMenu,
-			kLevelupMenu,
-			kLevelupMenuPrevNext,
+			kLevelUpMenu,
+			kLevelUpMenuPrevNext,
 			kMainMenu,
 			kQuickContainerMenu,
 			kSpecialActivateRollover,
 			kTwoButtonRollover,
 			kQuickContainerMenuPerk,
-			kVertiBird,
+			kVertibird,
 			kPlayBinkMenu,
 			kRobotModAddendum,
 			kCreationClub,
@@ -71,4 +71,6 @@ namespace RE
 			kScript
 		};
 	}
+
+	using UEFlag = UserEvents::USER_EVENT_FLAG;
 }

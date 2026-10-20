@@ -5,73 +5,43 @@ namespace RE
 	class BSTimer
 	{
 	public:
-		static constexpr std::size_t OG_SIZE = 0x40;
-		static constexpr std::size_t NG_SIZE = 0x40;
-		static constexpr std::size_t AE_SIZE = 0x50;
-		static constexpr std::size_t OG_RUNTIME_DATA_OFFSET = 0x20;
-		static constexpr std::size_t NG_RUNTIME_DATA_OFFSET = 0x20;
-		static constexpr std::size_t AE_RUNTIME_DATA_OFFSET = 0x30;
-
-		class RuntimeData
+		[[nodiscard]] static BSTimer* GetSingleton()
 		{
-		public:
-			std::uint64_t firstTime;              // 00
-			std::uint64_t disabledLastTime;       // 08
-			std::uint64_t disabledFirstTime;      // 10
-			std::uint32_t disableCounter;         // 18
-			bool useGlobalTimeMultiplierTarget;  // 1C
-		};
-		static_assert(sizeof(RuntimeData) == 0x20);
-
-		[[nodiscard]] static constexpr std::size_t GetRuntimeDataOffset(const REL::Version& a_version) noexcept
-		{
-			return REL::Relocate(
-				a_version,
-				OG_RUNTIME_DATA_OFFSET,
-				NG_RUNTIME_DATA_OFFSET,
-				AE_RUNTIME_DATA_OFFSET);
+			static REL::Relocation<BSTimer*> singleton{ REL::ID(0, 2703179) };
+			return singleton.get();
 		}
 
-		[[nodiscard]] static std::size_t GetRuntimeDataOffset() noexcept
+		[[nodiscard]] static float QGlobalTimeMultiplier()
 		{
-			return GetRuntimeDataOffset(REL::Module::get().version());
+			static REL::Relocation<float*> value{ REL::ID(0, 2666307) };
+			return *value;
 		}
 
-		[[nodiscard]] static constexpr std::size_t GetRuntimeSize(const REL::Version& a_version) noexcept
+		[[nodiscard]] static float QGlobalTimeMultiplierTarget()
 		{
-			return REL::Relocate(a_version, OG_SIZE, NG_SIZE, AE_SIZE);
+			static REL::Relocation<float*> value{ REL::ID(0, 2666308) };
+			return *value;
 		}
 
-		[[nodiscard]] static std::size_t GetRuntimeSize() noexcept
+		void SetGlobalTimeMultiplier(float a_mult, bool a_now)
 		{
-			return GetRuntimeSize(REL::Module::get().version());
+			using func_t = decltype(&BSTimer::SetGlobalTimeMultiplier);
+			static REL::Relocation<func_t> func{ REL::ID(1419977, 2267970) };
+			return func(this, a_mult, a_now);
 		}
 
-		[[nodiscard]] RuntimeData& GetRuntimeData() noexcept
-		{
-			return REL::RelocateMember<RuntimeData>(
-				this,
-				OG_RUNTIME_DATA_OFFSET,
-				NG_RUNTIME_DATA_OFFSET,
-				AE_RUNTIME_DATA_OFFSET);
-		}
-
-		[[nodiscard]] const RuntimeData& GetRuntimeData() const noexcept
-		{
-			return REL::RelocateMember<RuntimeData>(
-				this,
-				OG_RUNTIME_DATA_OFFSET,
-				NG_RUNTIME_DATA_OFFSET,
-				AE_RUNTIME_DATA_OFFSET);
-		}
-
-		// Common prefix shared by every supported runtime.
-		std::int64_t highPrecisionInitTime;  // 00
-		float clamp;                         // 08
-		float clampRemainder;                // 0C
-		float delta;                         // 10
-		float realTimeDelta;                 // 14
-		std::uint64_t lastTime;              // 18
+		// members
+		std::int64_t  highPrecisionInitTime;          // 00
+		float         clamp;                          // 08
+		float         clampRemainder;                 // 0C
+		float         delta;                          // 10
+		float         realTimeDelta;                  // 14
+		std::uint64_t lastTime;                       // 18
+		std::uint64_t firstTime;                      // 20
+		std::uint64_t disabledLastTime;               // 28
+		std::uint64_t disabledFirstTime;              // 30
+		std::uint32_t disableCounter;                 // 38
+		bool          useGlobalTimeMultiplierTarget;  // 3C
 	};
-	static_assert(sizeof(BSTimer) == 0x20);
+	static_assert(sizeof(BSTimer) == 0x40);
 }

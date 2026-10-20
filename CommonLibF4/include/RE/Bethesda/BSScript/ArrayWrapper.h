@@ -12,6 +12,7 @@
 #include "RE/Bethesda/BSTSmartPointer.h"
 #include "RE/Bethesda/BSTTuple.h"
 #include "RE/Bethesda/MemoryManager.h"
+
 namespace RE
 {
 	namespace BSScript
@@ -48,7 +49,9 @@ namespace RE
 			void ReplaceArray(BSScrapArray<Variable>& a_copy, IVirtualMachine& a_vm)
 			{
 				using func_t = decltype(&ArrayWrapper::ReplaceArray);
-				REL::Relocation<func_t> func{ REL::ID(445184, 2250435) };
+				// 1.11.221: BSScript::ArrayWrapper<Variable>::ReplaceArray at
+				// RVA 0x10B6100.  The old single ID is not runtime-invariant.
+				static REL::Relocation<func_t> func{ REL::ID(445184, 2250435) };
 				return func(this, a_copy, a_vm);
 			}
 

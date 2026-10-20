@@ -788,12 +788,12 @@ namespace REL
 		}
 
 		const auto version = Module::get().version();
-		const auto isOG = runtime_family(version) == RuntimeFamily::kOG;
 		std::size_t total{};
 		std::size_t resolved{};
 		std::size_t failed{};
 		std::ofstream failures;
 		bool failureOpenReported{};
+		const auto isOG = runtime_family(version) == RuntimeFamily::kOG;
 		const auto recordFailure = [&](std::uint64_t a_id, IDResolveStatus a_status) {
 			++failed;
 			if (!failures.is_open()) {
@@ -1355,9 +1355,6 @@ namespace REL
 			"Data/F4SE/Plugins/f4rd-runtime-{}.bin",
 			version.string());
 		const std::filesystem::path runtimePath = "Data/F4SE/Plugins/f4rd-runtime.bin";
-		const auto legacyPath = fmt::format(
-			"Data/F4SE/Plugins/version-{}.bin",
-			version.string());
 		std::filesystem::path loadedRuntimePath;
 		for (const auto& candidate :
 			std::array<std::filesystem::path, 2>{ runtimePath, versionedRuntimePath }) {
@@ -1376,54 +1373,11 @@ namespace REL
 			}
 		}
 
-		const auto loadLegacyTable = [&](const std::filesystem::path& a_path) {
-			_id2offset = {};
-			_mmap.close();
-			if (!_mmap.open(a_path)) {
-				return false;
-			}
-			if (_mmap.size() < sizeof(std::uint64_t)) {
-				_mmap.close();
-				return false;
-			}
-			constexpr std::array<std::uint8_t, 8> runtimeMagic{ 'F', '4', 'R', 'D', 'B', 'I', 'N', 0 };
-			if (std::equal(runtimeMagic.begin(), runtimeMagic.end(),
-					reinterpret_cast<const std::uint8_t*>(_mmap.data()))) {
-				_mmap.close();
-				return false;
-			}
-			std::uint64_t count{};
-			std::memcpy(std::addressof(count), _mmap.data(), sizeof(count));
-			const auto available = _mmap.size() - sizeof(std::uint64_t);
-			if (count > available / sizeof(mapping_t)) {
-				_mmap.close();
-				return false;
-			}
-			const auto entries = std::span{
-				reinterpret_cast<const mapping_t*>(_mmap.data() + sizeof(std::uint64_t)),
-				static_cast<std::size_t>(count)
-			};
-			for (std::size_t index = 0; index < entries.size(); ++index) {
-				if (entries[index].offset >= module.image_size() ||
-					(index != 0 && entries[index - 1].id >= entries[index].id)) {
-					_mmap.close();
-					return false;
-				}
-			}
-			_id2offset = entries;
-			return true;
-		};
-
-		const auto loadedOGTable = _runtime && isOG && !loadedRuntimePath.empty() &&
-			loadLegacyTable(loadedRuntimePath);
-		if (!loadedOGTable && !_runtimeMappings.empty()) {
-			_id2offset = _runtimeMappings;
-		} else if (!loadedOGTable && !_runtime && !loadLegacyTable(legacyPath)) {
+		if (!_runtime) {
 			stl::report_and_fail(fmt::format(
-				"failed to open {} or {}; Address Library fallback {} is also unavailable",
+				"failed to open {} or {}; Runtime Database is required (Address Library fallback is disabled)",
 				runtimePath.string(),
-				versionedRuntimePath,
-				legacyPath));
+				versionedRuntimePath));
 		}
 	}
 

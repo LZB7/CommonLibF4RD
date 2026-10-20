@@ -17,33 +17,21 @@ namespace RE
 		virtual ~NiCamera();  // 00
 
 		// override
-		virtual const NiRTTI* GetRTTI() const override;                         // 02
-		virtual NiObject* CreateClone(NiCloningProcess& a_cloneData) override;  // 1A
-		virtual void LoadBinary(NiStream& a_stream) override;                   // 1B
-		virtual void LinkObject(NiStream& a_stream) override;                   // 1C
-		virtual bool RegisterStreamables(NiStream& a_stream) override;          // 1D
-		virtual void SaveBinary(NiStream& a_stream) override;                   // 1E
-		virtual bool IsEqual(NiObject* a_object) override;                      // 1F
-		virtual void UpdateWorldBound() override;                               // 33
-		virtual void UpdateWorldData(NiUpdateData* a_data) override;            // 34
-
-		// Projects a world point through worldToCam into the camera port (0..1 with
-		// the default port, y up).  Fails for points at or behind a_zeroTolerance
-		// depth and for points outside the view frustum.
-		bool WorldPtToScreenPt(const NiPoint3& a_point, float& a_x, float& a_y, float a_zeroTolerance = 0.0F) const
-		{
-			using func_t = decltype(&NiCamera::WorldPtToScreenPt);
-			REL::Relocation<func_t> func{ REL::ID(855369, 2270341) };
-			return func(this, a_point, a_x, a_y, a_zeroTolerance);
-		}
+		virtual const NiRTTI* GetRTTI() const override;                             // 02
+		virtual NiObject*     CreateClone(NiCloningProcess& a_cloneData) override;  // 1A
+		virtual void          LoadBinary(NiStream& a_stream) override;              // 1B
+		virtual void          LinkObject(NiStream& a_stream) override;              // 1C
+		virtual bool          RegisterStreamables(NiStream& a_stream) override;     // 1D
+		virtual void          SaveBinary(NiStream& a_stream) override;              // 1E
+		virtual bool          IsEqual(NiObject* a_object) override;                 // 1F
 
 		// members
-		float worldToCam[4][4];  // 120
-		NiFrustum viewFrustum;   // 160
-		float minNearPlaneDist;  // 17C
-		float maxFarNearRatio;   // 180
-		NiRect<float> port;      // 184
-		float lodAdjust;         // 194
+		float         worldToCam[4][4];  // 120
+		NiFrustum     viewFrustum;       // 160
+		float         minNearPlaneDist;  // 17C
+		float         maxFarNearRatio;   // 180
+		NiRect<float> port;              // 184
+		float         lodAdjust;         // 194
 	};
 	static_assert(sizeof(NiCamera) == 0x1A0);
 }

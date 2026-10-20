@@ -6,8 +6,9 @@
 #include "RE/Bethesda/BSTArray.h"
 #include "RE/Bethesda/BSTSmartPointer.h"
 #include "RE/Bethesda/BSTTuple.h"
+#include "RE/Bethesda/FormComponents.h"
 #include "RE/Bethesda/MemoryManager.h"
-#include "RE/NetImmerse/NiPoint3.h"
+#include "RE/NetImmerse/NiPoint.h"
 
 namespace RE
 {
@@ -16,6 +17,9 @@ namespace RE
 	class ExtraAliasInstanceArray;
 	class ExtraCellWaterType;
 	class ExtraInstanceData;
+	class ExtraLightData;
+	class NiLight;
+	class ExtraLight;
 	class ExtraLocation;
 	class ExtraMaterialSwap;
 	class ExtraPowerLinks;
@@ -66,11 +70,11 @@ namespace RE
 		kRangeDistOverride,
 		kTimeLeft,
 		kCharge,
-		kLight,
+		kLight,     // ExtraLight
 		kLock,      // ExtraLock
 		kTeleport,  // ExtraTeleport
 		kMapMarker,
-		kLeveledCreature,
+		kLeveledCreature,  // ExtraLeveledCreature
 		kLevelItem,
 		kScale,
 		kSeed,
@@ -170,7 +174,7 @@ namespace RE
 		kOutfitItem,
 		kEditorLocation,
 		kLeveledItemBase,
-		kLightData,
+		kLightData,  // ExtraLightData
 		kScene,
 		kBadPosition,
 		kHeadTrackingWeight,
@@ -221,8 +225,7 @@ namespace RE
 		kCulledBone,
 		kActorValueStorage,
 		kDirectAtTarget,
-		kActivateNext,
-		kActivateText = kActivateNext,
+		kActivateText,
 		kCellCombinedRefs,
 		kObjectBreakable,
 		kSavedDynamicIdles,
@@ -250,6 +253,7 @@ namespace RE
 	class BGSMessage;
 	class BGSRefAlias;
 	class TBO_InstanceData;
+	class TESActorBase;
 	class TESBoundObject;
 	class TESForm;
 	class TESObjectCELL;
@@ -310,9 +314,9 @@ namespace RE
 		[[nodiscard]] EXTRA_DATA_TYPE GetExtraType() const noexcept { return *type; }
 
 		// members
-		BSExtraData* next{ nullptr };                                                    // 08
-		std::uint16_t flags{ 0 };                                                        // 10
-		stl::enumeration<EXTRA_DATA_TYPE, std::uint8_t> type{ EXTRA_DATA_TYPE::kNone };  // 12
+		BSExtraData*                                next{ nullptr };                 // 08
+		std::uint16_t                               flags{ 0 };                      // 10
+		REX::EnumSet<EXTRA_DATA_TYPE, std::uint8_t> type{ EXTRA_DATA_TYPE::kNone };  // 12
 	};
 	static_assert(sizeof(BSExtraData) == 0x18);
 
@@ -351,10 +355,50 @@ namespace RE
 		static constexpr auto VTABLE{ VTABLE::ExtraHealth };
 		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kHealth };
 
+		ExtraHealth(float a_health) :
+			BSExtraData(TYPE),
+			health(a_health)
+		{
+			stl::emplace_vtable(this);
+		}
+
 		// members
 		float health;  // 18
 	};
 	static_assert(sizeof(ExtraHealth) == 0x20);
+
+	class __declspec(novtable) ExtraCharge :
+		public BSExtraData  // 00
+	{
+	public:
+		static constexpr auto RTTI{ RTTI::ExtraCharge };
+		static constexpr auto VTABLE{ VTABLE::ExtraCharge };
+		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kCharge };
+
+		// members
+		float charge;  // 18
+	};
+	static_assert(sizeof(ExtraCharge) == 0x20);
+
+	struct __declspec(novtable) MapMarkerData :
+		public TESFullName  // 00
+	{
+		std::uint32_t flags;  // 10
+	};
+	static_assert(sizeof(MapMarkerData) == 0x18);
+
+	class __declspec(novtable) ExtraMapMarker :
+		public BSExtraData  // 00
+	{
+	public:
+		static constexpr auto RTTI{ RTTI::ExtraMapMarker };
+		static constexpr auto VTABLE{ VTABLE::ExtraMapMarker };
+		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kMapMarker };
+
+		// members
+		MapMarkerData* mapMarkerData;  // 18
+	};
+	static_assert(sizeof(ExtraMapMarker) == 0x20);
 
 	class __declspec(novtable) ExtraLock :
 		public BSExtraData  // 00
@@ -373,11 +417,11 @@ namespace RE
 	{
 	public:
 		// members
-		TESObjectCELL* transitionCell;  // 00
-		ObjectRefHandle linkedDoor;     // 08
-		NiPoint3 position;              // 0C
-		NiPoint3 rotation;              // 18
-		std::uint8_t flags;             // 24
+		TESObjectCELL*  transitionCell;  // 00
+		ObjectRefHandle linkedDoor;      // 08
+		NiPoint3        position;        // 0C
+		NiPoint3        rotation;        // 18
+		std::uint8_t    flags;           // 24
 	};
 	static_assert(sizeof(DoorTeleportData) == 0x28);
 
@@ -394,6 +438,20 @@ namespace RE
 	};
 	static_assert(sizeof(ExtraTeleport) == 0x20);
 
+	class __declspec(novtable) ExtraLeveledCreature :
+		public BSExtraData  // 00
+	{
+	public:
+		static constexpr auto RTTI{ RTTI::ExtraLeveledCreature };
+		static constexpr auto VTABLE{ VTABLE::ExtraLeveledCreature };
+		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kLeveledCreature };
+
+		// members
+		TESActorBase* originalBase;   // 18
+		TESActorBase* templates[13];  // 20
+	};
+	static_assert(sizeof(ExtraLeveledCreature) == 0x88);
+
 	class __declspec(novtable) ExtraInstanceData :
 		public BSExtraData  // 00
 	{
@@ -406,8 +464,8 @@ namespace RE
 		ExtraInstanceData(const TESBoundObject* a_base, BSTSmartPointer<TBO_InstanceData> a_data);
 
 		// members
-		const TESBoundObject* base{ nullptr };   // 18
-		BSTSmartPointer<TBO_InstanceData> data;  // 20
+		const TESBoundObject*             base{ nullptr };  // 18
+		BSTSmartPointer<TBO_InstanceData> data;             // 20
 	};
 	static_assert(sizeof(ExtraInstanceData) == 0x28);
 
@@ -430,24 +488,24 @@ namespace RE
 			ctor(a_item, a_parentForm, a_filter);
 		}
 
-		static bool AttachModToReference(TESObjectREFR& ref, BGSMod::Attachment::Mod& mod, std::uint8_t a_attachIndex, std::uint8_t a_rank)
+		static bool AttachModToReference(TESObjectREFR& a_ref, BGSMod::Attachment::Mod& a_mod, std::uint8_t a_attachIndex, std::uint8_t a_rank)
 		{
 			using func_t = decltype(&BGSObjectInstanceExtra::AttachModToReference);
-			REL::Relocation<func_t> func{ REL::ID(3303, 2189033) };
-			return func(ref, mod, a_attachIndex, a_rank);
+			static REL::Relocation<func_t> func{ REL::ID(3303, 2189033) };
+			return func(a_ref, a_mod, a_attachIndex, a_rank);
 		}
 
-		bool HasMod(const BGSMod::Attachment::Mod& mod)
+		bool HasMod(const BGSMod::Attachment::Mod& a_mod)
 		{
 			using func_t = decltype(&BGSObjectInstanceExtra::HasMod);
-			REL::Relocation<func_t> func{ REL::ID(963890, 2189026) };
-			return func(this, mod);
+			static REL::Relocation<func_t> func{ REL::ID(963890, 2189026) };
+			return func(this, a_mod);
 		}
 
 		void AddMod(const BGSMod::Attachment::Mod& a_newMod, std::uint8_t a_attachIndex, std::uint8_t a_rank, bool a_removeInvalidMods)
 		{
 			using func_t = decltype(&BGSObjectInstanceExtra::AddMod);
-			REL::Relocation<func_t> func{ REL::ID(1191757, 2189025) };
+			static REL::Relocation<func_t> func{ REL::ID(1191757, 2189025) };
 			return func(this, a_newMod, a_attachIndex, a_rank, a_removeInvalidMods);
 		}
 
@@ -458,26 +516,26 @@ namespace RE
 		std::uint32_t RemoveInvalidMods(const BGSAttachParentArray* a_baseObjectParents)
 		{
 			using func_t = decltype(&BGSObjectInstanceExtra::RemoveInvalidMods);
-			REL::Relocation<func_t> func{ REL::ID(1548060, 2189028) };
+			static REL::Relocation<func_t> func{ REL::ID(1548060, 2189028) };
 			return func(this, a_baseObjectParents);
 		}
 
 		std::uint32_t RemoveMod(const BGSMod::Attachment::Mod* a_mod, std::uint8_t a_attachIndex)
 		{
 			using func_t = decltype(&BGSObjectInstanceExtra::RemoveMod);
-			REL::Relocation<func_t> func{ REL::ID(1136607, 2189027) };
+			static REL::Relocation<func_t> func{ REL::ID(1136607, 2189027) };
 			return func(this, a_mod, a_attachIndex);
 		}
 
 		// members
 		const BSTDataBuffer<1>* values{ nullptr };  // 18
-		std::uint16_t itemIndex{ 0 };               // 20
+		std::uint16_t           itemIndex{ 0 };     // 20
 
 	private:
 		BGSObjectInstanceExtra* ctor(const BGSMod::Template::Item* a_item, TESForm* a_parentForm, const INSTANCE_FILTER* a_filter)
 		{
 			using func_t = decltype(&BGSObjectInstanceExtra::ctor);
-			REL::Relocation<func_t> func{ REL::ID(1222521, 2189015) };
+			static REL::Relocation<func_t> func{ REL::ID(1222521) };
 			return func(this, a_item, a_parentForm, a_filter);
 		}
 	};
@@ -524,8 +582,8 @@ namespace RE
 	{
 	public:
 		// members
-		TESQuest* quest;                           // 00
-		BGSRefAlias* alias;                        // 08
+		TESQuest*              quest;              // 00
+		BGSRefAlias*           alias;              // 08
 		BSTArray<TESPackage*>* instancedPackages;  // 10
 	};
 	static_assert(sizeof(BGSRefAliasInstanceData) == 0x18);
@@ -539,10 +597,70 @@ namespace RE
 		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kAliasInstanceArray };
 
 		// members
-		BSTArray<BGSRefAliasInstanceData> aliasArray;  // 18
-		BSReadWriteLock aliasArrayLock;                // 30
+		BSTArray<BGSRefAliasInstanceData> aliasArray;      // 18
+		BSReadWriteLock                   aliasArrayLock;  // 30
 	};
 	static_assert(sizeof(ExtraAliasInstanceArray) == 0x38);
+
+	class __declspec(novtable) ExtraKeywords :
+		public BSExtraData  // 00
+	{
+	public:
+		static constexpr auto RTTI{ RTTI::ExtraKeywords };
+		static constexpr auto VTABLE{ VTABLE::ExtraKeywords };
+		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kKeywords };
+
+		BSTArray<RE::BGSKeyword*> keywordArray_maybe;  // 18
+		BSReadWriteLock           extraRWLock;         // 28
+	};
+	static_assert(sizeof(ExtraKeywords) == 0x38);
+
+	// TODO: finish RE'ing
+	struct ExtraLightDataStruct
+	{
+		ExtraLightDataStruct();
+		~ExtraLightDataStruct() = default;
+
+		float fov;                  // 00
+		float fade;                 // 04
+		float endDistanceCap;       // 08
+		float shadowDepthBias;      // 0C
+		float spotNear;             // 10
+		float volumetricIntensity;  // 14
+	};
+	static_assert(sizeof(ExtraLightDataStruct) == 0x18);
+
+	class __declspec(novtable) ExtraLightData :
+		public BSExtraData  // 00
+	{
+	public:
+		static constexpr auto RTTI{ RTTI::ExtraLightData };
+		static constexpr auto VTABLE{ VTABLE::ExtraLightData };
+		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kLightData };
+
+		ExtraLightDataStruct data;  // 18
+	};
+	static_assert(sizeof(ExtraLightData) == 0x30);
+
+	struct REFR_LIGHT
+	{
+		NiPointer<NiLight> light;       // 00
+		float              wantDimmer;  // 08
+		std::uint32_t      pad0C;       // 0C
+	};
+	static_assert(sizeof(REFR_LIGHT) == 0x10);
+
+	class __declspec(novtable) ExtraLight :
+		public BSExtraData  // 00
+	{
+		inline static constexpr auto RTTI{ RTTI::ExtraLight };
+		static constexpr auto        VTABLE{ VTABLE::ExtraLight };
+		inline static constexpr auto TYPE{ EXTRA_DATA_TYPE::kLight };
+
+		// members
+		REFR_LIGHT* lightData;  // 18
+	};
+	static_assert(sizeof(ExtraLight) == 0x20);
 
 	class __declspec(novtable) ExtraLocation :
 		public BSExtraData  // 00
@@ -593,17 +711,17 @@ namespace RE
 		[[nodiscard]] const BSFixedStringCS& GetDisplayName(TESBoundObject* a_baseObject)
 		{
 			using func_t = decltype(&ExtraTextDisplayData::GetDisplayName);
-			REL::Relocation<func_t> func{ REL::ID(1523343, 2191318) };
+			static REL::Relocation<func_t> func{ REL::ID(1523343) };
 			return func(this, a_baseObject);
 		}
 
 		// members
-		BSFixedStringCS displayName;                                    // 18
-		BGSMessage* displayNameText;                                    // 20
-		TESQuest* ownerQuest;                                           // 28
-		stl::enumeration<DisplayDataType, std::int32_t> ownerInstance;  // 30
+		BSFixedStringCS                              displayName;       // 18
+		BGSMessage*                                  displayNameText;   // 20
+		TESQuest*                                    ownerQuest;        // 28
+		REX::EnumSet<DisplayDataType, std::int32_t>  ownerInstance;     // 30
 		BSTArray<BSTTuple<BSFixedString, TESForm*>>* textPairs;         // 38
-		std::uint16_t customNameLength;                                 // 40
+		std::uint16_t                                customNameLength;  // 40
 	};
 	static_assert(sizeof(ExtraTextDisplayData) == 0x48);
 
@@ -633,7 +751,7 @@ namespace RE
 		{
 		public:
 			// members
-			std::uint32_t formID;    // 0
+			TESFormID     formID;    // 0
 			std::uint32_t linkType;  // 4
 		};
 		static_assert(sizeof(Element) == 0x8);
@@ -643,18 +761,32 @@ namespace RE
 	};
 	static_assert(sizeof(ExtraPowerLinks) == 0x30);
 
-	class __declspec(novtable) ExtraBendableSplineParams : public BSExtraData
+	class __declspec(novtable) ExtraBendableSplineParams :
+		public BSExtraData  // 00
 	{
 	public:
 		static constexpr auto RTTI{ RTTI::ExtraBendableSplineParams };
 		static constexpr auto VTABLE{ VTABLE::ExtraBendableSplineParams };
 		static constexpr auto TYPE{ EXTRA_DATA_TYPE::kBendableSplineParams };
-		float unk18;      // 18
-		float thickness;  // 1C
-		float xOffset;    // 20
-		float yOffset;    // 24
-		float zOffset;    // 28
-		float unk2C;      // 2C
+
+		struct ParamData_Untilv13
+		{
+			// members
+			float    slack;        // 00
+			float    thickness;    // 04
+			NiPoint3 halfExtents;  // 08
+		};
+		static_assert(sizeof(ParamData_Untilv13) == 0x14);
+
+		struct ParamData : public ParamData_Untilv13
+		{
+			// members
+			bool endDetached;  // 14
+		};
+		static_assert(sizeof(ParamData) == 0x18);
+
+		// members
+		ParamData data;  // 18
 	};
 	static_assert(sizeof(ExtraBendableSplineParams) == 0x30);
 
@@ -697,10 +829,10 @@ namespace RE
 		[[nodiscard]] bool HasType(EXTRA_DATA_TYPE a_type) const noexcept
 		{
 			assert(a_type < EXTRA_DATA_TYPE::kTotal);
-			const auto idx = stl::to_underlying(a_type) / 8;
+			const auto idx = std::to_underlying(a_type) / 8;
 			const auto flags = GetFlags();
 			if (!flags.empty() && idx < flags.size()) {
-				const auto pos = static_cast<std::uint8_t>(1u << (stl::to_underlying(a_type) % 8));
+				const auto pos = static_cast<std::uint8_t>(1u << (std::to_underlying(a_type) % 8));
 				return (flags[idx] & pos) != 0;
 			} else {
 				return false;
@@ -733,11 +865,11 @@ namespace RE
 		}
 
 	private:
-		static constexpr std::size_t N = (stl::to_underlying(EXTRA_DATA_TYPE::kTotal) / 8) + 1;
+		static constexpr std::size_t N = (std::to_underlying(EXTRA_DATA_TYPE::kTotal) / 8) + 1;
 
 		[[nodiscard]] static bool IsHighUseExtra(EXTRA_DATA_TYPE a_type) noexcept
 		{
-			return !((stl::to_underlying(a_type) - 11) & ~0x22u) && a_type != EXTRA_DATA_TYPE::kLeveledCreature;
+			return !((std::to_underlying(a_type) - 11) & ~0x22u) && a_type != EXTRA_DATA_TYPE::kLeveledCreature;
 		}
 
 		void CreateFlags() { _flags = calloc<std::uint8_t>(N); }
@@ -763,8 +895,8 @@ namespace RE
 		void MarkType(EXTRA_DATA_TYPE a_type, bool a_set)
 		{
 			assert(a_type < EXTRA_DATA_TYPE::kTotal);
-			const auto idx = stl::to_underlying(a_type) / 8;
-			const auto pos = static_cast<std::uint8_t>(1u << (stl::to_underlying(a_type) % 8));
+			const auto idx = std::to_underlying(a_type) / 8;
+			const auto pos = static_cast<std::uint8_t>(1u << (std::to_underlying(a_type) % 8));
 			const auto flags = GetOrCreateFlags();
 			if (a_set) {
 				flags[idx] |= pos;
@@ -774,7 +906,7 @@ namespace RE
 		}
 
 		// members
-		BSExtraData* _head{ nullptr };                 // 00
+		BSExtraData*  _head{ nullptr };                // 00
 		BSExtraData** _tail{ std::addressof(_head) };  // 08
 		std::uint8_t* _flags{ nullptr };               // 10
 	};
@@ -804,7 +936,7 @@ namespace RE
 		stl::observer<TBO_InstanceData*> CreateInstanceData(TESBoundObject* a_object, bool a_generateName)
 		{
 			using func_t = decltype(&ExtraDataList::CreateInstanceData);
-			REL::Relocation<func_t> func{ REL::ID(1280130, 2190185) };
+			static REL::Relocation<func_t> func{ REL::ID(1280130, 2190185) };
 			return func(this, a_object, a_generateName);
 		}
 
@@ -823,29 +955,8 @@ namespace RE
 		[[nodiscard]] BGSMod::Attachment::Mod* GetLegendaryMod()
 		{
 			using func_t = decltype(&ExtraDataList::GetLegendaryMod);
-			REL::Relocation<func_t> func{ REL::ID(178075, 2190180) };
+			static REL::Relocation<func_t> func{ REL::ID(178075, 2190180) };
 			return func(this);
-		}
-
-		[[nodiscard]] int64_t GetInstanceData()
-		{
-			using func_t = decltype(&ExtraDataList::GetInstanceData);
-			REL::Relocation<func_t> func{ REL::ID(1345655, 2190186) };
-			return func(this);
-		}
-
-		[[nodiscard]] RE::TESForm* GetOwner()
-		{
-			using func_t = decltype(&ExtraDataList::GetOwner);
-			REL::Relocation<func_t> func{ REL::ID(942243, 2190213) };
-			return func(this);
-		}
-
-		char* SetOwnership(TESForm* a1, bool a2)
-		{
-			using func_t = decltype(&ExtraDataList::SetOwnership);
-			REL::Relocation<func_t> func{ REL::ID(772604, 2190115) };
-			return func(this, a1, a2);
 		}
 
 		[[nodiscard]] bool HasType(EXTRA_DATA_TYPE a_type) const noexcept
@@ -872,72 +983,85 @@ namespace RE
 			return std::unique_ptr<T>{ static_cast<T*>(RemoveExtra(T::TYPE).release()) };
 		}
 
-		bool SetBendableSplineInfo(float* thickness, float* slack, NiPoint3* unk1 = nullptr, bool* unk2 = nullptr)
+		bool SetBendableSplineInfo(float* a_thickness, float* a_slack, NiPoint3* a_halfExtents = nullptr, bool* a_detachedEnd = nullptr)
 		{
 			using func_t = decltype(&ExtraDataList::SetBendableSplineInfo);
-			REL::Relocation<func_t> func{ REL::ID(894306, 2190623) };
-			return func(this, thickness, slack, unk1, unk2);
+			static REL::Relocation<func_t> func{ REL::ID(894306, 2190623) };
+			return func(this, a_thickness, a_slack, a_halfExtents, a_detachedEnd);
 		}
 
 		void SetDisplayNameFromInstanceData(BGSObjectInstanceExtra* a_instExtra, TESBoundObject* a_object, const BSTSmartPointer<TBO_InstanceData>& a_data)
 		{
 			using func_t = decltype(&ExtraDataList::SetDisplayNameFromInstanceData);
-			REL::Relocation<func_t> func{ REL::ID(457340, 2190179) };
+			static REL::Relocation<func_t> func{ REL::ID(457340, 2190179) };
 			return func(this, a_instExtra, a_object, a_data);
+		}
+
+		void SetOverrideName(const char* a_name)
+		{
+			using func_t = decltype(&ExtraDataList::SetOverrideName);
+			static REL::Relocation<func_t> func{ REL::ID(222303, 2190167) };
+			return func(this, a_name);
 		}
 
 		void SetStartingWorldOrCell(TESForm* a_form)
 		{
 			using func_t = decltype(&ExtraDataList::SetStartingWorldOrCell);
-			REL::Relocation<func_t> func{ REL::ID(603621, 2190506) };
+			static REL::Relocation<func_t> func{ REL::ID(603621, 2191213) };
 			return func(this, a_form);
-		}
-
-		void SetHealthPercent(float a_healthPerc)
-		{
-			using func_t = decltype(&ExtraDataList::SetHealthPercent);
-			REL::Relocation<func_t> func{ REL::ID(1208294, 2190124) };
-			return func(this, a_healthPerc);
 		}
 
 		float GetHealthPercent()
 		{
 			using func_t = decltype(&ExtraDataList::GetHealthPercent);
-			REL::Relocation<func_t> func{ REL::ID(196530, 2190226) };
+			static REL::Relocation<func_t> func{ REL::ID(196530, 2190226) };
 			return func(this);
 		}
 
-		bool GetProtectedOverridden(bool* a2)
+		void SetHealthPercent(float a_healthPerc)
 		{
-			using func_t = decltype(&ExtraDataList::GetProtectedOverridden);
-			REL::Relocation<func_t> func{ REL::ID(156065, 2190652) };
-			return func(this, a2);
+			using func_t = decltype(&ExtraDataList::SetHealthPercent);
+			static REL::Relocation<func_t> func{ REL::ID(1208294, 2190124) };
+			return func(this, a_healthPerc);
 		}
-
-		bool GetEssentialOverridden(bool* a2)
-		{
-			using func_t = decltype(&ExtraDataList::GetEssentialOverridden);
-			REL::Relocation<func_t> func{ REL::ID(1565696, 2190651) };
-			return func(this, a2);
-		}
-
 
 		bool ClearFavorite()
 		{
 			using func_t = decltype(&ExtraDataList::ClearFavorite);
-			REL::Relocation<func_t> func{ REL::ID(254434, 2190191) };
+			static REL::Relocation<func_t> func{ REL::ID(254434, 2190191) };
 			return func(this);
 		}
 
 		bool IsFavorite()
 		{
 			using func_t = decltype(&ExtraDataList::IsFavorite);
-			REL::Relocation<func_t> func{ REL::ID(786568, 2190189) };
+			static REL::Relocation<func_t> func{ REL::ID(786568, 2190189) };
 			return func(this);
 		}
 
+		float GetScale()
+		{
+			using func_t = decltype(&ExtraDataList::GetScale);
+			static REL::Relocation<func_t> func{ REL::ID(1499172) };
+			return func(this);
+		}
+
+		float GetCurrentCharge()
+		{
+			using func_t = decltype(&ExtraDataList::GetCurrentCharge);
+			static REL::Relocation<func_t> func{ REL::ID(980329) };
+			return func(this);
+		}
+
+		void SetCurrentCharge(float a_charge)
+		{
+			using func_t = decltype(&ExtraDataList::SetCurrentCharge);
+			static REL::Relocation<func_t> func{ REL::ID(648722) };
+			return func(this, a_charge);
+		}
+
 		// members
-		BaseExtraList extraData;              // 08
+		BaseExtraList           extraData;    // 08
 		mutable BSReadWriteLock extraRWLock;  // 20
 	};
 	static_assert(sizeof(ExtraDataList) == 0x28);

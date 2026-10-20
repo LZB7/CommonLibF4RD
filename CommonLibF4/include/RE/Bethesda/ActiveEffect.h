@@ -1,25 +1,22 @@
 #pragma once
 
-#include "RE/Bethesda/ActiveEffectReferenceEffectController.h"
 #include "RE/Bethesda/BSSoundHandle.h"
-#include "RE/Bethesda/BSTList.h"
+#include "RE/Bethesda/ReferenceEffectController.h"
 #include "RE/Bethesda/TESForms.h"
-#include "RE/NetImmerse/NiSmartPointer.h"
 
 namespace RE
 {
+	class ActiveEffect;
 	class EffectItem;
 	class MagicItem;
 	class MagicTarget;
-	class NiNode;
 	class ReferenceEffect;
-	class TESBoundObject;
 	class TESForm;
 	class TESObjectREFR;
 
 	namespace MagicSystem
 	{
-		enum class CastingSource : std::int32_t;
+		enum class CastingSource;
 	}
 
 	class __declspec(novtable) ActiveEffect :
@@ -29,13 +26,6 @@ namespace RE
 		static constexpr auto RTTI{ RTTI::ActiveEffect };
 		static constexpr auto VTABLE{ VTABLE::ActiveEffect };
 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kActiveEffect };
-
-		bool CheckDisplacementSpellOnTarget()
-		{
-			using func_t = decltype(&ActiveEffect::CheckDisplacementSpellOnTarget);
-			REL::Relocation<func_t> func{ REL::ID(1415178, 2226001) };
-			return func(this);
-		}
 
 		enum class Flags : std::uint32_t
 		{
@@ -64,34 +54,31 @@ namespace RE
 
 		virtual ~ActiveEffect();
 
-		[[nodiscard]] ReferenceEffectController& GetHitEffectController() noexcept
+		bool CheckDisplacementSpellOnTarget()
 		{
-			return static_cast<ReferenceEffectController&>(hitEffectController);
-		}
-
-		[[nodiscard]] const ReferenceEffectController& GetHitEffectController() const noexcept
-		{
-			return static_cast<const ReferenceEffectController&>(hitEffectController);
+			using func_t = decltype(&ActiveEffect::CheckDisplacementSpellOnTarget);
+			static REL::Relocation<func_t> func{ REL::ID(1415178) };
+			return func(this);
 		}
 
 		// members
-		ActiveEffectReferenceEffectController hitEffectController;  // 10
-		BSSoundHandle persistentSound;                               // 30
-		ActorHandle caster;                                          // 38
-		NiPointer<NiNode> sourceNode;                                // 40
-		MagicItem* spell;                                            // 48
-		EffectItem* effect;                                          // 50
-		MagicTarget* target;                                         // 58
-		TESBoundObject* source;                                      // 60
-		BSSimpleList<ReferenceEffect*>* hitEffects;                  // 68
-		MagicItem* displacementSpell;                                // 70
-		float elapsedSeconds;                                        // 78
-		float duration;                                              // 7C
-		float magnitude;                                             // 80
-		stl::enumeration<Flags, std::uint32_t> flags;                // 84
-		stl::enumeration<ConditionStatus, std::uint32_t> conditionStatus;  // 88
-		std::uint16_t uniqueID;                                      // 8C
-		MagicSystem::CastingSource castingSource;                    // 90
+		ActiveEffectReferenceEffectController                   hitEffectController;  // 0C
+		BSSoundHandle                                           persistentSound;      // 30
+		ActorHandle                                             caster;               // 38
+		NiPointer<NiNode>                                       sourceNode;           // 40
+		MagicItem*                                              spell;                // 48
+		EffectItem*                                             effect;               // 50
+		MagicTarget*                                            target;               // 58
+		TESBoundObject*                                         source;               // 60
+		BSSimpleList<ReferenceEffect*>*                         hitEffects;           // 68
+		MagicItem*                                              displacementSpell;    // 70
+		float                                                   elapsedSeconds;       // 74
+		float                                                   duration;             // 78
+		float                                                   magnitude;            // 7C
+		REX::EnumSet<Flags, std::uint32_t>                      flags;                // 80
+		REX::EnumSet<ConditionStatus, std::uint32_t>            conditionStatus;      // 84
+		std::uint16_t                                           uniqueID;             // 8C
+		REX::EnumSet<MagicSystem::CastingSource, std::uint32_t> castingSource;        // 90
 	};
 	static_assert(sizeof(ActiveEffect) == 0x98);
 }

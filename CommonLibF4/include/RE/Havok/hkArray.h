@@ -12,8 +12,7 @@ namespace RE
 		using value_type = T;
 		using pointer = value_type*;
 
-	public:
-		pointer _data;                // 00
+		pointer   _data;              // 00
 		size_type _size;              // 08
 		size_type _capacityAndFlags;  // 0C
 	};

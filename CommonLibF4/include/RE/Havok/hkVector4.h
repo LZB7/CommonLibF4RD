@@ -1,146 +1,152 @@
 #pragma once
 
-#include "RE/NetImmerse/NiPoint3.h"
-
+typedef float hkReal;
 namespace RE
 {
 	class hkVector4f
 	{
 	public:
-		hkVector4f() noexcept :
-			quad(_mm_setzero_ps())
-		{}
-
-		hkVector4f(const NiPoint3& a_point) noexcept :
-			quad(_mm_set_ps(0.0F, a_point.z, a_point.y, a_point.x))
-		{}
-
-		hkVector4f(float a_x, float a_y, float a_z, float a_w = 0.0F) noexcept :
-			quad(_mm_set_ps(a_w, a_z, a_y, a_x))
-		{}
-
-		hkVector4f(const hkVector4f&) noexcept = default;
-		hkVector4f& operator=(const hkVector4f&) noexcept = default;
-
-		[[nodiscard]] hkVector4f operator+(const hkVector4f& a_rhs) const noexcept
+		__declspec(align(16)) hkReal x;
+		hkReal y;
+		hkReal z;
+		hkReal w;
+		hkVector4f()
 		{
-			return { x + a_rhs.x, y + a_rhs.y, z + a_rhs.z };
-		}
-
-		hkVector4f& operator+=(const hkVector4f& a_rhs) noexcept
-		{
-			quad = _mm_add_ps(quad, a_rhs.quad);
-			return *this;
-		}
-
-		[[nodiscard]] hkVector4f operator-(const hkVector4f& a_rhs) const noexcept
-		{
-			return { x - a_rhs.x, y - a_rhs.y, z - a_rhs.z };
-		}
-
-		[[nodiscard]] hkVector4f operator-() const noexcept
-		{
-			return { -x, -y, -z };
-		}
-
-		hkVector4f& operator-=(const hkVector4f& a_rhs) noexcept
-		{
-			quad = _mm_sub_ps(quad, a_rhs.quad);
-			return *this;
-		}
-
-		[[nodiscard]] hkVector4f operator*(float a_scalar) const noexcept
-		{
-			return { x * a_scalar, y * a_scalar, z * a_scalar, w * a_scalar };
-		}
-
-		hkVector4f& operator*=(float a_scalar) noexcept
-		{
-			quad = _mm_mul_ps(quad, _mm_set1_ps(a_scalar));
-			return *this;
-		}
-
-		[[nodiscard]] hkVector4f operator*(const hkVector4f& a_rhs) const noexcept
-		{
-			return { x * a_rhs.x, y * a_rhs.y, z * a_rhs.z, w * a_rhs.w };
-		}
-
-		hkVector4f& operator*=(const hkVector4f& a_rhs) noexcept
-		{
-			quad = _mm_mul_ps(quad, a_rhs.quad);
-			return *this;
-		}
-
-		[[nodiscard]] hkVector4f operator/(float a_scalar) const noexcept
-		{
-			return { x / a_scalar, y / a_scalar, z / a_scalar };
-		}
-
-		hkVector4f& operator/=(float a_scalar) noexcept
-		{
-			quad = _mm_div_ps(quad, _mm_set1_ps(a_scalar));
-			return *this;
-		}
-
-		[[nodiscard]] hkVector4f operator/(const hkVector4f& a_rhs) const noexcept
-		{
-			return { x / a_rhs.x, y / a_rhs.y, z / a_rhs.z, w / a_rhs.w };
-		}
-
-		hkVector4f& operator/=(const hkVector4f& a_rhs) noexcept
-		{
-			quad = _mm_div_ps(quad, a_rhs.quad);
-			return *this;
-		}
-
-		[[nodiscard]] float Length() const noexcept
-		{
-			return std::sqrt(x * x + y * y + z * z);
-		}
-
-		hkVector4f& Normalize() noexcept
-		{
-			const auto length = Length();
-			if (length == 0.0F) {
-				x = 0.0F;
-				y = 0.0F;
-				z = 0.0F;
-			} else {
-				x /= length;
-				y /= length;
-				z /= length;
-			}
-			return *this;
-		}
-
-		[[nodiscard]] hkVector4f GetNormalized() const noexcept
-		{
-			auto normalized = *this;
-			normalized.Normalize();
-			return normalized;
-		}
-
-		[[nodiscard]] float Dot(const hkVector4f& a_rhs) const noexcept
-		{
-			return x * a_rhs.x + y * a_rhs.y + z * a_rhs.z;
-		}
-
-		[[nodiscard]] operator NiPoint3() const noexcept
-		{
-			return { x, y, z };
-		}
-
-		union
-		{
-			__m128 quad;  // 00
-			struct
-			{
-				float x;
-				float y;
-				float z;
-				float w;
-			};
+			x = 0;
+			y = 0;
+			z = 0;
+			w = 0;
 		};
+		hkVector4f(NiPoint3 p)
+		{
+			x = p.x;
+			y = p.y;
+			z = p.z;
+			w = 0.0f;
+		}
+		hkVector4f(float _x, float _y, float _z, float _w = 0.0f)
+		{
+			x = _x;
+			y = _y;
+			z = _z;
+			w = _w;
+		}
+		hkVector4f& operator=(const hkVector4f& v)
+		{
+			this->x = v.x;
+			this->y = v.y;
+			this->z = v.z;
+			this->w = v.w;
+			return *this;
+		}
+		hkVector4f operator+(const hkVector4f& v)
+		{
+			return hkVector4f(x + v.x, y + v.y, z + v.z);
+		}
+		hkVector4f& operator+=(const hkVector4f& v)
+		{
+			this->x += v.x;
+			this->y += v.y;
+			this->z += v.z;
+			this->w += v.w;
+			return *this;
+		}
+		hkVector4f operator-(const hkVector4f& v)
+		{
+			return hkVector4f(x - v.x, y - v.y, z - v.z);
+		}
+		hkVector4f operator-()
+		{
+			return hkVector4f(x * -1.0f, y * -1.0f, z * -1.0f);
+		}
+		hkVector4f& operator-=(const hkVector4f& v)
+		{
+			this->x -= v.x;
+			this->y -= v.y;
+			this->z -= v.z;
+			this->w -= v.w;
+			return *this;
+		}
+		hkVector4f operator*(float a)
+		{
+			return hkVector4f(x * a, y * a, z * a, w * a);
+		}
+		hkVector4f& operator*=(float a)
+		{
+			this->x *= a;
+			this->y *= a;
+			this->z *= a;
+			this->w *= a;
+			return *this;
+		}
+		hkVector4f operator*(const hkVector4f& v)
+		{
+			return hkVector4f(x * v.x, y * v.y, z * v.z, w * v.w);
+		}
+		hkVector4f& operator*=(const hkVector4f& v)
+		{
+			this->x *= v.x;
+			this->y *= v.y;
+			this->z *= v.z;
+			this->w *= v.w;
+			return *this;
+		}
+		hkVector4f operator/(float a)
+		{
+			return hkVector4f(x / a, y / a, z / a);
+		}
+		hkVector4f& operator/=(float a)
+		{
+			this->x /= a;
+			this->y /= a;
+			this->z /= a;
+			this->w /= a;
+			return *this;
+		}
+		hkVector4f operator/(const hkVector4f& v)
+		{
+			return hkVector4f(x / v.x, y / v.y, z / v.z, w / v.w);
+		}
+		hkVector4f& operator/=(const hkVector4f& v)
+		{
+			this->x /= v.x;
+			this->y /= v.y;
+			this->z /= v.z;
+			this->w /= v.w;
+			return *this;
+		}
+		float Length()
+		{
+			return sqrt(x * x + y * y + z * z);
+		}
+		hkVector4f& Normalize()
+		{
+			float l = Length();
+			if (l == 0) {
+				this->x = 0;
+				this->y = 0;
+				this->z = 0;
+				return *this;
+			}
+			this->x /= l;
+			this->y /= l;
+			this->z /= l;
+			return *this;
+		}
+		hkVector4f GetNormalized()
+		{
+			hkVector4f norm = *this;
+			norm.Normalize();
+			return norm;
+		}
+		float Dot(const hkVector4f& v)
+		{
+			return this->x * v.x + this->y * v.y + this->z * v.z;
+		}
+		operator NiPoint3()
+		{
+			return NiPoint3(x, y, z);
+		}
 	};
 	static_assert(sizeof(hkVector4f) == 0x10);
-}
+};
