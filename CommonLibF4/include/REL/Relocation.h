@@ -1335,18 +1335,20 @@ namespace REL
 	}
 
 	template <class T>
-	[[nodiscard]] T& RelocateMember(void* a_self, std::ptrdiff_t a_og, std::ptrdiff_t a_ae) noexcept
+	[[nodiscard]] T& RelocateMember(void* a_self, std::ptrdiff_t a_f4AndNG, std::ptrdiff_t a_vr) noexcept
 	{
-		return RelocateMember<T>(a_self, Module::get().version(), a_og, a_ae);
+		const auto offset = Module::IsVR() ? a_vr : a_f4AndNG;
+		return *reinterpret_cast<T*>(reinterpret_cast<std::uintptr_t>(a_self) + offset);
 	}
 
 	template <class T>
 	[[nodiscard]] const T& RelocateMember(
 		const void* a_self,
-		std::ptrdiff_t a_og,
-		std::ptrdiff_t a_ae) noexcept
+		std::ptrdiff_t a_f4AndNG,
+		std::ptrdiff_t a_vr) noexcept
 	{
-		return RelocateMember<T>(a_self, Module::get().version(), a_og, a_ae);
+		const auto offset = Module::IsVR() ? a_vr : a_f4AndNG;
+		return *reinterpret_cast<const T*>(reinterpret_cast<std::uintptr_t>(a_self) + offset);
 	}
 
 	template <class T>
@@ -1444,21 +1446,18 @@ namespace REL
 
 	template <class Fn, class This, class... Args>
 	decltype(auto) RelocateVirtual(
-		std::ptrdiff_t a_ogVtableOffset,
-		std::ptrdiff_t a_aeVtableOffset,
-		std::size_t a_ogIndex,
-		std::size_t a_aeIndex,
+		std::ptrdiff_t a_f4AndNGVtableOffset,
+		std::ptrdiff_t a_vrVtableOffset,
+		std::size_t a_f4AndNGIndex,
+		std::size_t a_vrIndex,
 		This* a_self,
 		Args&&... a_args)
 	{
-		return RelocateVirtual<Fn>(
-			Module::get().version(),
-			a_ogVtableOffset,
-			a_aeVtableOffset,
-			a_ogIndex,
-			a_aeIndex,
-			a_self,
-			std::forward<Args>(a_args)...);
+		const auto vtableOffset = Module::IsVR() ? a_vrVtableOffset : a_f4AndNGVtableOffset;
+		const auto index = Module::IsVR() ? a_vrIndex : a_f4AndNGIndex;
+		const auto address = reinterpret_cast<std::uintptr_t>(a_self) + vtableOffset;
+		const auto vtable = *reinterpret_cast<const std::uintptr_t* const*>(address);
+		return Relocation<Fn>{ vtable[index] }(a_self, std::forward<Args>(a_args)...);
 	}
 
 	template <class Fn, class This, class... Args>
@@ -1481,15 +1480,16 @@ namespace REL
 
 	template <class Fn, class This, class... Args>
 	decltype(auto) RelocateVirtual(
-		std::size_t a_ogIndex,
-		std::size_t a_aeIndex,
+		std::size_t a_f4AndNGIndex,
+		std::size_t a_vrIndex,
 		This* a_self,
 		Args&&... a_args)
 	{
 		return RelocateVirtual<Fn>(
-			Module::get().version(),
-			a_ogIndex,
-			a_aeIndex,
+			0,
+			0,
+			a_f4AndNGIndex,
+			a_vrIndex,
 			a_self,
 			std::forward<Args>(a_args)...);
 	}
