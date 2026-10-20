@@ -219,6 +219,9 @@ namespace RE
 		const TESFile* LookupModByName(std::string_view a_modName)
 		{
 			for (auto& file : files) {
+				if (!file) {
+					continue;
+				}
 				if (a_modName.size() == strlen(file->filename) &&
 					_strnicmp(file->filename, a_modName.data(), a_modName.size()) == 0) {
 					return file;
@@ -238,6 +241,9 @@ namespace RE
 			auto pCompiledFileCollection = GetCompiledFileCollection();
 			if (pCompiledFileCollection) {
 				for (auto& file : pCompiledFileCollection->files) {
+					if (!file) {
+						continue;
+					}
 					if (a_modName.size() == strlen(file->filename) &&
 						_strnicmp(file->filename, a_modName.data(), a_modName.size()) == 0) {
 						return file;
@@ -246,6 +252,9 @@ namespace RE
 			} else if (auto pLoadedMods = GetVRModData()) {  // In VR so only have files loadedMods
 				for (uint32_t i = 0; i < pLoadedMods->loadedModCount; i++) {
 					auto& file = pLoadedMods->loadedMods[i];
+					if (!file) {
+						continue;
+					}
 					if (a_modName.size() == strlen(file->filename) &&
 						_strnicmp(file->filename, a_modName.data(), a_modName.size()) == 0) {
 						return file;
@@ -260,6 +269,9 @@ namespace RE
 			auto pCompiledFileCollection = GetCompiledFileCollection();
 			if (pCompiledFileCollection) {
 				for (auto& file : pCompiledFileCollection->files) {
+					if (!file) {
+						continue;
+					}
 					if (file->compileIndex == a_index) {
 						return file;
 					}
@@ -267,6 +279,9 @@ namespace RE
 			} else if (auto pLoadedMods = GetVRModData()) {  // In VR so only have files loadedMods
 				for (uint32_t i = 0; i < pLoadedMods->loadedModCount; i++) {
 					auto& file = pLoadedMods->loadedMods[i];
+					if (!file) {
+						continue;
+					}
 					if (file->compileIndex == a_index) {
 						return file;
 					}
@@ -286,6 +301,9 @@ namespace RE
 			auto pCompiledFileCollection = GetCompiledFileCollection();
 			if (pCompiledFileCollection) {
 				for (auto& smallFile : pCompiledFileCollection->smallFiles) {
+					if (!smallFile) {
+						continue;
+					}
 					if (a_modName.size() == strlen(smallFile->filename) &&
 						_strnicmp(smallFile->filename, a_modName.data(), a_modName.size()) == 0) {
 						return smallFile;
@@ -300,6 +318,9 @@ namespace RE
 			auto pCompiledFileCollection = GetCompiledFileCollection();
 			if (pCompiledFileCollection) {
 				for (auto& smallFile : pCompiledFileCollection->smallFiles) {
+					if (!smallFile) {
+						continue;
+					}
 					if (smallFile->smallFileCompileIndex == a_index) {
 						return smallFile;
 					}
