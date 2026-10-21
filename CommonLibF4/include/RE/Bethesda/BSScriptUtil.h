@@ -1243,7 +1243,7 @@ namespace RE::BSScript
 			Args...>;
 
 	template <class F>
-	void IVirtualMachine::BindNativeMethod(
+	bool IVirtualMachine::BindNativeMethod(
 		stl::zstring        a_object,
 		stl::zstring        a_function,
 		F                   a_func,
@@ -1263,6 +1263,7 @@ namespace RE::BSScript
 		if (success && a_taskletCallable) {
 			SetCallableFromTasklets(a_object.data(), a_function.data(), *a_taskletCallable);
 		}
+		return success;
 	}
 
 	namespace detail

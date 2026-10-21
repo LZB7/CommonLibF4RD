@@ -135,7 +135,7 @@ namespace RE
 			virtual void                                     PostCachedErrorToLogger(const ICachedErrorMessage& a_errorFunctor, std::uint32_t a_stackID, ErrorLogger::Severity a_severity) const = 0;                                                                                                                                                       // 3C
 
 			template <class F>
-			void BindNativeMethod(
+			[[nodiscard]] bool BindNativeMethod(
 				stl::zstring        a_object,
 				stl::zstring        a_function,
 				F                   a_func,
